@@ -1,0 +1,2793 @@
+import { ScrollView, LineEdit, Slider } from "std-widgets.slint";
+
+export struct LibraryItem {
+    id: string,
+    name: string,
+    selected: bool,
+}
+
+export struct AlbumItem {
+    id: string,
+    title: string,
+    artist: string,
+    artist_id: string,
+    year: string,
+    genre: string,
+    song_count: int,
+    duration_text: string,
+    starred: bool,
+    cover: image,
+    has_cover: bool,
+}
+
+export struct ArtistItem {
+    id: string,
+    name: string,
+    album_count: int,
+    starred: bool,
+}
+
+export struct SongItem {
+    id: string,
+    track_num: string,
+    title: string,
+    artist: string,
+    artist_id: string,
+    album: string,
+    album_id: string,
+    duration_text: string,
+    duration_secs: int,
+    quality_badge: string,
+    starred: bool,
+    rating: int,
+    is_downloaded: bool,
+    is_playing: bool,
+    play_count: int,
+    disc_number: int,
+}
+
+export struct PlaylistItem {
+    id: string,
+    name: string,
+    comment: string,
+    owner: string,
+    public: bool,
+    song_count: int,
+    duration_text: string,
+}
+
+export struct GenreItem {
+    name: string,
+    song_count: int,
+    album_count: int,
+}
+
+export struct LyricLineItem {
+    time_ms: int,
+    text: string,
+    active: bool,
+}
+
+export struct ShareItem {
+    id: string,
+    url: string,
+    description: string,
+    visit_count: int,
+}
+
+global Theme {
+    out property <color> bg-canvas: #111113;
+    out property <color> bg-sidebar: #161618;
+    out property <color> bg-elevated: #1c1c1f;
+    out property <color> bg-transport: #18181b;
+    out property <color> bg-row-alt: #141417;
+    out property <color> bg-hover: #222227;
+    out property <color> bg-selected: #2a181d;
+    out property <color> border-subtle: #242428;
+    out property <color> accent: #fa2d48;
+    out property <color> accent-hover: #ff475f;
+    out property <color> accent-soft: #fa2d4828;
+    out property <color> green-badge: #30d158;
+    out property <color> text-primary: #f5f5f7;
+    out property <color> text-secondary: #98989f;
+    out property <color> text-muted: #636369;
+}
+
+component Hairline inherits Rectangle {
+    height: 1px;
+    background: Theme.border-subtle;
+}
+
+component PillButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> primary: false;
+    in property <bool> active: false;
+    callback clicked();
+
+    height: 28px;
+    horizontal-stretch: 0;
+    min-width: txt.preferred-width + 22px;
+    border-radius: 6px;
+    background: primary ? (touch.has-hover ? Theme.accent-hover : Theme.accent)
+              : active ? Theme.accent-soft
+              : (touch.has-hover ? Theme.bg-hover : Theme.bg-elevated);
+    border-width: primary ? 0px : 1px;
+    border-color: active ? Theme.accent : Theme.border-subtle;
+
+    txt := Text {
+        text: root.label;
+        color: primary ? #ffffff : (active ? Theme.accent : Theme.text-primary);
+        font-size: 12px;
+        font-weight: primary || active ? 600 : 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component SidebarNavRow inherits Rectangle {
+    in property <string> icon-text;
+    in property <string> label;
+    in property <string> badge: "";
+    in property <bool> selected: false;
+    callback clicked();
+
+    height: 32px;
+    border-radius: 6px;
+    background: selected ? Theme.accent : (touch.has-hover ? Theme.bg-hover : transparent);
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 9px;
+
+        Text {
+            width: 16px;
+            text: root.icon-text;
+            color: selected ? #ffffff : Theme.accent;
+            font-size: 13px;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: root.label;
+            color: selected ? #ffffff : Theme.text-primary;
+            font-size: 13px;
+            font-weight: selected ? 600 : 400;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+
+        if root.badge != "" : Text {
+            text: root.badge;
+            color: selected ? #ffffffcc : Theme.text-muted;
+            font-size: 11px;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component AlbumTile inherits Rectangle {
+    in property <AlbumItem> album;
+    callback open-album(string);
+    callback play-album(string);
+    callback toggle-star(string, bool);
+
+    width: 156px;
+    height: 204px;
+    background: transparent;
+
+    VerticalLayout {
+        spacing: 6px;
+
+        art-box := Rectangle {
+            width: 156px;
+            height: 156px;
+            border-radius: 6px;
+            background: Theme.bg-elevated;
+            border-width: 1px;
+            border-color: Theme.border-subtle;
+            clip: true;
+
+            if root.album.has_cover : Image {
+                width: 100%;
+                height: 100%;
+                source: root.album.cover;
+                image-fit: cover;
+            }
+
+            if !root.album.has_cover : VerticalLayout {
+                alignment: center;
+                spacing: 4px;
+                Text {
+                    text: "♫";
+                    font-size: 32px;
+                    color: Theme.text-muted;
+                    horizontal-alignment: center;
+                }
+                Text {
+                    text: root.album.year != "" ? root.album.year : "ALBUM";
+                    font-size: 10px;
+                    color: Theme.text-muted;
+                    horizontal-alignment: center;
+                }
+            }
+
+            art-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.open-album(root.album.id); }
+            }
+
+            // Subtle play overlay button in bottom-right on hover
+            if art-touch.has-hover : Rectangle {
+                x: 116px;
+                y: 116px;
+                width: 32px;
+                height: 32px;
+                border-radius: 16px;
+                background: Theme.accent;
+
+                Text {
+                    text: "▶";
+                    color: #ffffff;
+                    font-size: 12px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.play-album(root.album.id); }
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: 2px;
+            Text {
+                text: root.album.title;
+                color: Theme.text-primary;
+                font-size: 12px;
+                font-weight: 600;
+                overflow: elide;
+            }
+            HorizontalLayout {
+                spacing: 4px;
+                Text {
+                    text: root.album.artist;
+                    color: Theme.text-secondary;
+                    font-size: 11px;
+                    overflow: elide;
+                    horizontal-stretch: 1;
+                }
+                if root.album.year != "" : Text {
+                    text: root.album.year;
+                    color: Theme.text-muted;
+                    font-size: 11px;
+                }
+            }
+        }
+    }
+}
+
+component TrackTableHeader inherits Rectangle {
+    in property <bool> show-album-col: true;
+    in property <bool> compact: false;
+
+    height: 28px;
+    background: Theme.bg-canvas;
+
+    VerticalLayout {
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            spacing: 8px;
+
+            Text {
+                width: 28px;
+                text: "#";
+                color: Theme.text-muted;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+                horizontal-alignment: right;
+            }
+            Text {
+                width: 22px;
+                text: "♥";
+                color: Theme.text-muted;
+                font-size: 11px;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+            }
+            Text {
+                horizontal-stretch: 3;
+                text: "TITLE";
+                color: Theme.text-muted;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            if !root.compact : Text {
+                horizontal-stretch: 2;
+                text: "ARTIST";
+                color: Theme.text-muted;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            if root.show-album-col && !root.compact : Text {
+                horizontal-stretch: 2;
+                text: "ALBUM";
+                color: Theme.text-muted;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            if !root.compact : Text {
+                width: 92px;
+                text: "QUALITY";
+                color: Theme.text-muted;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+            }
+            Text {
+                width: 48px;
+                text: "TIME";
+                color: Theme.text-muted;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+                horizontal-alignment: right;
+            }
+            Text {
+                width: 82px;
+                text: "";
+                color: Theme.text-muted;
+                font-size: 11px;
+                vertical-alignment: center;
+            }
+        }
+        Hairline {}
+    }
+}
+
+component TrackRow inherits Rectangle {
+    in property <SongItem> song;
+    in property <int> row-index: 0;
+    in property <bool> show-album-col: true;
+    in property <bool> compact: false;
+    in property <bool> allow-remove: false;
+
+    callback play-song(string);
+    callback queue-song(string);
+    callback toggle-star(string, bool);
+    callback download-song(string);
+    callback open-artist(string);
+    callback open-album(string);
+    callback remove-from-playlist(int);
+
+    height: 36px;
+    background: root.song.is_playing ? Theme.bg-selected
+              : row-touch.has-hover ? Theme.bg-hover
+              : (Math.mod(root.row-index, 2) == 1 ? Theme.bg-row-alt : transparent);
+
+    row-touch := TouchArea {
+        double-clicked => { root.play-song(root.song.id); }
+    }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 8px;
+
+        // Track # or Play button
+        Rectangle {
+            width: 28px;
+            Text {
+                text: row-touch.has-hover ? "▶" : (root.song.is_playing ? "♫" : root.song.track_num);
+                color: root.song.is_playing || row-touch.has-hover ? Theme.accent : Theme.text-muted;
+                font-size: 12px;
+                font-weight: root.song.is_playing ? 700 : 400;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+            }
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.play-song(root.song.id); }
+            }
+        }
+
+        // Favorite / Star button
+        Rectangle {
+            width: 22px;
+            Text {
+                text: root.song.starred ? "♥" : "♡";
+                color: root.song.starred ? Theme.accent : Theme.text-muted;
+                font-size: 13px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.toggle-star(root.song.id, !root.song.starred); }
+            }
+        }
+
+        // Title (+ Artist subtitle in compact/mobile mode)
+        VerticalLayout {
+            horizontal-stretch: 3;
+            alignment: center;
+            HorizontalLayout {
+                spacing: 6px;
+                Text {
+                    text: root.song.title;
+                    color: root.song.is_playing ? Theme.accent : Theme.text-primary;
+                    font-size: 13px;
+                    font-weight: root.song.is_playing ? 600 : 400;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+                if root.song.is_downloaded : Rectangle {
+                    width: 16px;
+                    height: 15px;
+                    border-radius: 3px;
+                    background: #30d15822;
+                    Text {
+                        text: "↓";
+                        color: Theme.green-badge;
+                        font-size: 10px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+            if root.compact : Text {
+                text: root.song.artist + " · " + root.song.album;
+                color: Theme.text-secondary;
+                font-size: 11px;
+                overflow: elide;
+            }
+        }
+
+        // Artist column
+        if !root.compact : Rectangle {
+            horizontal-stretch: 2;
+            Text {
+                width: 100%;
+                text: root.song.artist;
+                color: artist-touch.has-hover ? Theme.text-primary : Theme.text-secondary;
+                font-size: 12px;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+            artist-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    if (root.song.artist_id != "") {
+                        root.open-artist(root.song.artist_id);
+                    }
+                }
+            }
+        }
+
+        // Album column
+        if root.show-album-col && !root.compact : Rectangle {
+            horizontal-stretch: 2;
+            Text {
+                width: 100%;
+                text: root.song.album;
+                color: album-touch.has-hover ? Theme.text-primary : Theme.text-secondary;
+                font-size: 12px;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+            album-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    if (root.song.album_id != "") {
+                        root.open-album(root.song.album_id);
+                    }
+                }
+            }
+        }
+
+        // Quality badge column (OpenSubsonic metadata)
+        if !root.compact : Rectangle {
+            width: 92px;
+            Rectangle {
+                height: 18px;
+                width: 86px;
+                border-radius: 4px;
+                background: Theme.bg-elevated;
+                border-width: 1px;
+                border-color: Theme.border-subtle;
+                Text {
+                    text: root.song.quality_badge;
+                    color: Theme.text-secondary;
+                    font-size: 10px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+
+        // Duration column
+        Text {
+            width: 48px;
+            text: root.song.duration_text;
+            color: Theme.text-secondary;
+            font-size: 12px;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+        }
+
+        // Quick row actions: Queue (+), Download (↓), Remove (×)
+        HorizontalLayout {
+            width: 82px;
+            spacing: 4px;
+            alignment: end;
+
+            Rectangle {
+                width: 24px;
+                height: 22px;
+                border-radius: 4px;
+                background: q-touch.has-hover ? Theme.bg-elevated : transparent;
+                Text {
+                    text: "+Q";
+                    color: Theme.text-secondary;
+                    font-size: 10px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                q-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.queue-song(root.song.id); }
+                }
+            }
+
+            Rectangle {
+                width: 24px;
+                height: 22px;
+                border-radius: 4px;
+                background: dl-touch.has-hover ? Theme.bg-elevated : transparent;
+                Text {
+                    text: root.song.is_downloaded ? "✓" : "↓";
+                    color: root.song.is_downloaded ? Theme.green-badge : Theme.text-secondary;
+                    font-size: 11px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                dl-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.download-song(root.song.id); }
+                }
+            }
+
+            if root.allow-remove : Rectangle {
+                width: 22px;
+                height: 22px;
+                border-radius: 4px;
+                background: rm-touch.has-hover ? Theme.bg-elevated : transparent;
+                Text {
+                    text: "×";
+                    color: Theme.accent;
+                    font-size: 13px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                rm-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.remove-from-playlist(root.row-index); }
+                }
+            }
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "Ultrasonic — Navidrome Music";
+    min-width: 360px;
+    min-height: 560px;
+    preferred-width: 1260px;
+    preferred-height: 820px;
+    background: Theme.bg-canvas;
+
+    // Responsive layout properties
+    in-out property <bool> force-mobile-layout: false;
+    out property <bool> is-mobile: root.force-mobile-layout;
+    in-out property <bool> mobile-now-playing-open: false;
+
+    // Navigation & View state
+    // "listen_now", "albums", "album_detail", "artists", " songs", "genres", "favorites", "downloads", "playlists", "search", "settings"
+    in-out property <string> active-view: "listen_now";
+    in-out property <string> album-sort-type: "newest";
+    in-out property <string> search-query: "";
+    in-out property <string> status-message: "Ready";
+    in-out property <bool> is-connected: false;
+    in-out property <string> server-version-badge: "Navidrome / OpenSubsonic";
+    in-out property <string> active-libraries-summary: "All Libraries";
+
+    // Right drawer state ("none", "lyrics", "queue")
+    in-out property <string> right-drawer: "none";
+
+    // Server & Audio Config properties
+    in-out property <string> config-server-url: "http://localhost:4533";
+    in-out property <string> config-username: "";
+    in-out property <string> config-password: "";
+    in-out property <string> config-stream-format: "raw";
+    in-out property <int> config-stream-bitrate: 0;
+    in-out property <string> config-download-format: "raw";
+    in-out property <int> config-download-bitrate: 0;
+    in-out property <bool> config-auto-download-streamed: true;
+    in-out property <bool> config-scrobble-enabled: true;
+    in-out property <bool> config-webui-enabled: true;
+    in-out property <int> config-webui-port: 4534;
+
+    // Scan status
+    in-out property <bool> scan-in-progress: false;
+    in-out property <int> scan-count: 0;
+    in-out property <string> scan-last-time: "Never";
+
+    // Models
+    in-out property <[LibraryItem]> libraries: [];
+    in-out property <[AlbumItem]> featured-albums: [];
+    in-out property <[AlbumItem]> albums: [];
+    in-out property <[ArtistItem]> artists: [];
+    in-out property <[AlbumItem]> selected-artist-albums: [];
+    in-out property <[SongItem]> selected-artist-top-songs: [];
+    in-out property <[SongItem]> songs: [];
+    in-out property <[GenreItem]> genres: [];
+    in-out property <[PlaylistItem]> playlists: [];
+    in-out property <[SongItem]> playlist-songs: [];
+    in-out property <[SongItem]> downloaded-songs: [];
+    in-out property <[SongItem]> queue-songs: [];
+    in-out property <[LyricLineItem]> lyrics-lines: [];
+    in-out property <[ShareItem]> shares: [];
+
+    // Selected detail headers
+    in-out property <AlbumItem> current-album-detail;
+    in-out property <[SongItem]> current-album-songs: [];
+    in-out property <string> current-album-notes: "";
+
+    in-out property <string> selected-artist-id: "";
+    in-out property <string> selected-artist-name: "";
+    in-out property <string> selected-artist-bio: "";
+
+    in-out property <string> selected-genre-name: "";
+
+    in-out property <string> selected-playlist-id: "";
+    in-out property <string> selected-playlist-name: "";
+    in-out property <string> selected-playlist-comment: "";
+    in-out property <int> selected-playlist-count: 0;
+    in-out property <string> selected-playlist-duration: "0:00";
+    in-out property <string> new-playlist-name: "";
+
+    // Downloads / Offline storage summary
+    in-out property <string> downloads-summary-text: "0 tracks stored locally (0 MB)";
+
+    // Playback state
+    in-out property <bool> is-playing: false;
+    in-out property <bool> shuffle-enabled: false;
+    in-out property <string> repeat-mode: "off"; // "off", "all", "one"
+    in-out property <string> now-playing-id: "";
+    in-out property <string> now-playing-title: "Not Playing";
+    in-out property <string> now-playing-artist: "Select a song or connect to your Navidrome server";
+    in-out property <string> now-playing-album: "";
+    in-out property <string> now-playing-album-id: "";
+    in-out property <string> now-playing-artist-id: "";
+    in-out property <string> now-playing-quality: "READY";
+    in-out property <bool> now-playing-starred: false;
+    in-out property <bool> now-playing-is-local: false;
+    in-out property <int> now-playing-rating: 0;
+    in-out property <image> now-playing-cover;
+    in-out property <bool> now-playing-has-cover: false;
+    in-out property <float> playback-progress: 0.0; // 0.0 to 1.0
+    in-out property <string> playback-current-time: "0:00";
+    in-out property <string> playback-total-time: "0:00";
+    in-out property <float> volume: 0.85;
+
+    // Callbacks to Rust backend
+    callback navigate(string);
+    callback toggle-library(string);
+    callback select-all-libraries();
+    callback change-album-sort(string);
+    callback run-search(string);
+    callback open-album(string);
+    callback play-album(string);
+    callback download-album(string);
+    callback open-artist(string);
+    callback select-genre(string);
+    callback select-playlist(string);
+    callback create-new-playlist(string);
+    callback delete-selected-playlist();
+    callback download-selected-playlist();
+    callback add-current-song-to-playlist(string);
+    callback remove-song-from-selected-playlist(int);
+    callback share-current-album();
+    callback delete-share(string);
+
+    callback play-song(string);
+    callback queue-song(string);
+    callback download-song(string);
+    callback toggle-star(string, bool);
+    callback toggle-album-star(string, bool);
+    callback set-song-rating(string, int);
+
+    callback transport-play-pause();
+    callback transport-next();
+    callback transport-prev();
+    callback transport-seek(float);
+    callback transport-volume(float);
+    callback toggle-shuffle();
+    callback cycle-repeat();
+
+    callback save-queue-to-server();
+    callback load-queue-from-server();
+    callback clear-queue();
+    callback clear-downloads();
+
+    callback save-and-connect();
+    callback set-stream-format(string);
+    callback set-stream-bitrate(int);
+    callback set-download-format(string);
+    callback set-download-bitrate(int);
+    callback toggle-auto-download-streamed(bool);
+    callback trigger-server-scan(bool);
+
+    VerticalLayout {
+        // =====================================================================
+        // MAIN WORKSPACE (Sidebar + Center Content + Optional Right Drawer)
+        // =====================================================================
+        HorizontalLayout {
+            vertical-stretch: 1;
+
+            // -----------------------------------------------------------------
+            // LEFT SIDEBAR (Desktop Mode)
+            // -----------------------------------------------------------------
+            if !root.is-mobile : Rectangle {
+                width: 236px;
+                background: Theme.bg-sidebar;
+
+                HorizontalLayout {
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        padding: 12px;
+                        spacing: 10px;
+
+                        // Brand + Connection Dot
+                        HorizontalLayout {
+                            spacing: 8px;
+                            padding-left: 4px;
+                            padding-bottom: 2px;
+                            Rectangle {
+                                width: 10px;
+                                height: 10px;
+                                y: 5px;
+                                border-radius: 5px;
+                                background: root.is-connected ? Theme.green-badge : Theme.accent;
+                            }
+                            Text {
+                                text: "Music";
+                                color: Theme.text-primary;
+                                font-size: 18px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: "NAVIDROME";
+                                color: Theme.text-muted;
+                                font-size: 10px;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        // Search Box
+                        Rectangle {
+                            height: 30px;
+                            border-radius: 6px;
+                            background: Theme.bg-elevated;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
+
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 6px;
+                                spacing: 4px;
+
+                                Text {
+                                    text: "⌕";
+                                    color: Theme.text-muted;
+                                    font-size: 13px;
+                                    vertical-alignment: center;
+                                }
+                                search-input := LineEdit {
+                                    font-size: 12px;
+                                    placeholder-text: "Search Songs, Albums, Artists";
+                                    text <=> root.search-query;
+                                    accepted(val) => {
+                                        root.active-view = "search";
+                                        root.run-search(val);
+                                    }
+                                }
+                            }
+                        }
+
+                        ScrollView {
+                            vertical-stretch: 1;
+
+                            VerticalLayout {
+                                spacing: 14px;
+                                alignment: start;
+
+                                // NAVIDROME MULTI-LIBRARY FILTER SECTION
+                                VerticalLayout {
+                                    spacing: 3px;
+                                    HorizontalLayout {
+                                        padding-left: 6px;
+                                        padding-right: 4px;
+                                        Text {
+                                            text: "LIBRARIES";
+                                            color: Theme.text-muted;
+                                            font-size: 10px;
+                                            font-weight: 700;
+                                            horizontal-stretch: 1;
+                                            vertical-alignment: center;
+                                        }
+                                        Rectangle {
+                                            width: 32px;
+                                            height: 16px;
+                                            Text {
+                                                text: "All";
+                                                color: Theme.accent;
+                                                font-size: 10px;
+                                                font-weight: 600;
+                                                horizontal-alignment: right;
+                                                vertical-alignment: center;
+                                            }
+                                            TouchArea {
+                                                mouse-cursor: pointer;
+                                                clicked => { root.select-all-libraries(); }
+                                            }
+                                        }
+                                    }
+
+                                    for lib in root.libraries : Rectangle {
+                                        height: 28px;
+                                        border-radius: 5px;
+                                        background: lib-touch.has-hover ? Theme.bg-hover : transparent;
+
+                                        HorizontalLayout {
+                                            padding-left: 8px;
+                                            padding-right: 8px;
+                                            spacing: 8px;
+
+                                            Rectangle {
+                                                width: 14px;
+                                                height: 14px;
+                                                y: 7px;
+                                                border-radius: 3px;
+                                                background: lib.selected ? Theme.accent : Theme.bg-elevated;
+                                                border-width: 1px;
+                                                border-color: lib.selected ? Theme.accent : Theme.border-subtle;
+
+                                                if lib.selected : Text {
+                                                    text: "✓";
+                                                    color: #ffffff;
+                                                    font-size: 10px;
+                                                    font-weight: 700;
+                                                    horizontal-alignment: center;
+                                                    vertical-alignment: center;
+                                                }
+                                            }
+
+                                            Text {
+                                                text: lib.name;
+                                                color: lib.selected ? Theme.text-primary : Theme.text-secondary;
+                                                font-size: 12px;
+                                                font-weight: lib.selected ? 500 : 400;
+                                                vertical-alignment: center;
+                                                overflow: elide;
+                                                horizontal-stretch: 1;
+                                            }
+                                        }
+
+                                        lib-touch := TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { root.toggle-library(lib.id); }
+                                        }
+                                    }
+                                }
+
+                                // LIBRARY NAVIGATION
+                                VerticalLayout {
+                                    spacing: 2px;
+                                    Text {
+                                        text: " APPLE MUSIC";
+                                        color: Theme.text-muted;
+                                        font-size: 10px;
+                                        font-weight: 700;
+                                    }
+                                    SidebarNavRow {
+                                        icon-text: "♫";
+                                        label: "Listen Now";
+                                        selected: root.active-view == "listen_now";
+                                        clicked => { root.navigate("listen_now"); }
+                                    }
+                                    SidebarNavRow {
+                                        icon-text: "◉";
+                                        label: "Albums";
+                                        selected: root.active-view == "albums" || root.active-view == "album_detail";
+                                        clicked => { root.navigate("albums"); }
+                                    }
+                                    SidebarNavRow {
+                                        icon-text: "◎";
+                                        label: "Artists";
+                                        selected: root.active-view == "artists";
+                                        clicked => { root.navigate("artists"); }
+                                    }
+                                    SidebarNavRow {
+                                        icon-text: "≡";
+                                        label: "Songs";
+                                        selected: root.active-view == "songs";
+                                        clicked => { root.navigate("songs"); }
+                                    }
+                                    SidebarNavRow {
+                                        icon-text: "◈";
+                                        label: "Genres";
+                                        selected: root.active-view == "genres";
+                                        clicked => { root.navigate("genres"); }
+                                    }
+                                    SidebarNavRow {
+                                        icon-text: "♥";
+                                        label: "Favorites";
+                                        selected: root.active-view == "favorites";
+                                        clicked => { root.navigate("favorites"); }
+                                    }
+                                    SidebarNavRow {
+                                        icon-text: "↓";
+                                        label: "Downloaded";
+                                        badge: root.config-auto-download-streamed ? "AUTO" : "";
+                                        selected: root.active-view == "downloads";
+                                        clicked => { root.navigate("downloads"); }
+                                    }
+                                }
+
+                                // PLAYLISTS SECTION
+                                VerticalLayout {
+                                    spacing: 2px;
+                                    HorizontalLayout {
+                                        padding-left: 6px;
+                                        padding-right: 4px;
+                                        Text {
+                                            text: "PLAYLISTS";
+                                            color: Theme.text-muted;
+                                            font-size: 10px;
+                                            font-weight: 700;
+                                            horizontal-stretch: 1;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    SidebarNavRow {
+                                        icon-text: "▤";
+                                        label: "All Playlists";
+                                        selected: root.active-view == "playlists";
+                                        clicked => { root.navigate("playlists"); }
+                                    }
+
+                                    for pl in root.playlists : SidebarNavRow {
+                                        icon-text: "♪";
+                                        label: pl.name;
+                                        badge: pl.song_count;
+                                        selected: root.active-view == "playlists" && root.selected-playlist-id == pl.id;
+                                        clicked => {
+                                            root.active-view = "playlists";
+                                            root.select-playlist(pl.id);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Hairline {}
+
+                        SidebarNavRow {
+                            icon-text: "⚙";
+                            label: "Server & Audio";
+                            badge: root.config-stream-format == "raw" ? "RAW" : root.config-stream-format;
+                            selected: root.active-view == "settings";
+                            clicked => { root.navigate("settings"); }
+                        }
+                    }
+
+                    // Right border hairline of sidebar
+                    Rectangle {
+                        width: 1px;
+                        background: Theme.border-subtle;
+                    }
+                }
+            }
+
+            // -----------------------------------------------------------------
+            // CENTER VIEWPORT
+            // -----------------------------------------------------------------
+            VerticalLayout {
+                horizontal-stretch: 1;
+
+                // Top Chrome Bar
+                Rectangle {
+                    height: 48px;
+                    background: Theme.bg-canvas;
+
+                    VerticalLayout {
+                        HorizontalLayout {
+                            vertical-stretch: 1;
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            spacing: 10px;
+
+                            // View Heading
+                            Text {
+                                text: root.active-view == "listen_now" ? "Listen Now"
+                                    : root.active-view == "albums" ? "Albums"
+                                    : root.active-view == "album_detail" ? root.current-album-detail.title
+                                    : root.active-view == "artists" ? "Artists"
+                                    : root.active-view == "songs" ? "Songs"
+                                    : root.active-view == "genres" ? "Genres"
+                                    : root.active-view == "favorites" ? "Favorite Music"
+                                    : root.active-view == "downloads" ? "Downloaded Music"
+                                    : root.active-view == "playlists" ? "Playlists"
+                                    : root.active-view == "search" ? "Search Results"
+                                    : "Navidrome & Audio Settings";
+                                color: Theme.text-primary;
+                                font-size: 18px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                                overflow: elide;
+                            }
+
+                            // Active multi-library indicator pill
+                            Rectangle {
+                                height: 22px;
+                                y: 13px;
+                                width: lib-sum-txt.preferred-width + 16px;
+                                border-radius: 11px;
+                                background: Theme.bg-elevated;
+                                border-width: 1px;
+                                border-color: Theme.border-subtle;
+
+                                lib-sum-txt := Text {
+                                    text: root.active-libraries-summary;
+                                    color: Theme.text-secondary;
+                                    font-size: 11px;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+
+                                TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { root.navigate("settings"); }
+                                }
+                            }
+
+                            Rectangle { horizontal-stretch: 1; }
+
+                            // Status notification text
+                            if !root.is-mobile : Text {
+                                text: root.status-message;
+                                color: Theme.text-muted;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                                overflow: elide;
+                            }
+
+                            // Desktop/Mobile responsive layout preview toggle
+                            PillButton {
+                                y: 10px;
+                                label: root.force-mobile-layout ? "Desktop UI" : "Mobile UI";
+                                active: root.force-mobile-layout;
+                                clicked => { root.force-mobile-layout = !root.force-mobile-layout; }
+                            }
+
+                            // Lyrics drawer button
+                            PillButton {
+                                y: 10px;
+                                label: "❝ Lyrics";
+                                active: root.right-drawer == "lyrics";
+                                clicked => {
+                                    root.right-drawer = (root.right-drawer == "lyrics") ? "none" : "lyrics";
+                                }
+                            }
+
+                            // Up Next Queue drawer button
+                            PillButton {
+                                y: 10px;
+                                label: "≡ Up Next";
+                                active: root.right-drawer == "queue";
+                                clicked => {
+                                    root.right-drawer = (root.right-drawer == "queue") ? "none" : "queue";
+                                }
+                            }
+                        }
+                        Hairline {}
+                    }
+                }
+
+                // Mobile Search & Multi-Library strip when in Mobile mode
+                if root.is-mobile : Rectangle {
+                    height: 40px;
+                    background: Theme.bg-sidebar;
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        padding-top: 6px;
+                        padding-bottom: 6px;
+                        spacing: 8px;
+                        LineEdit {
+                            horizontal-stretch: 1;
+                            font-size: 12px;
+                            placeholder-text: "Search Navidrome library...";
+                            text <=> root.search-query;
+                            accepted(val) => {
+                                root.active-view = "search";
+                                root.run-search(val);
+                            }
+                        }
+                        PillButton {
+                            label: "Search";
+                            primary: true;
+                            clicked => {
+                                root.active-view = "search";
+                                root.run-search(root.search-query);
+                            }
+                        }
+                    }
+                }
+
+                // =============================================================
+                // VIEW 1: LISTEN NOW (Apple Music Home: Recently Added Shelf + Quick Mix Table)
+                // =============================================================
+                if root.active-view == "listen_now" : ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        padding: 18px;
+                        spacing: 20px;
+                        alignment: start;
+
+                        // Top Shelf: Featured / Newly Added Albums
+                        VerticalLayout {
+                            spacing: 10px;
+                            HorizontalLayout {
+                                Text {
+                                    text: "Recently Added & Featured";
+                                    color: Theme.text-primary;
+                                    font-size: 15px;
+                                    font-weight: 700;
+                                    horizontal-stretch: 1;
+                                    vertical-alignment: center;
+                                }
+                                PillButton {
+                                    label: "See All Albums →";
+                                    clicked => { root.navigate("albums"); }
+                                }
+                            }
+
+                            ScrollView {
+                                height: 214px;
+                                HorizontalLayout {
+                                    spacing: 16px;
+                                    alignment: start;
+                                    for alb in root.featured-albums : AlbumTile {
+                                        album: alb;
+                                        open-album(id) => { root.open-album(id); }
+                                        play-album(id) => { root.play-album(id); }
+                                        toggle-star(id, st) => { root.toggle-album-star(id, st); }
+                                    }
+                                }
+                            }
+                        }
+
+                        Hairline {}
+
+                        // Quick Mix / Songs Table
+                        VerticalLayout {
+                            spacing: 6px;
+                            HorizontalLayout {
+                                padding-bottom: 4px;
+                                Text {
+                                    text: "Songs from Selected Libraries";
+                                    color: Theme.text-primary;
+                                    font-size: 15px;
+                                    font-weight: 700;
+                                    horizontal-stretch: 1;
+                                    vertical-alignment: center;
+                                }
+                                PillButton {
+                                    label: "↻ Refresh Mix";
+                                    clicked => { root.navigate("listen_now"); }
+                                }
+                            }
+
+                            TrackTableHeader {
+                                compact: root.is-mobile;
+                            }
+
+                            for s[idx] in root.songs : TrackRow {
+                                song: s;
+                                row-index: idx;
+                                compact: root.is-mobile;
+                                play-song(id) => { root.play-song(id); }
+                                queue-song(id) => { root.queue-song(id); }
+                                toggle-star(id, st) => { root.toggle-star(id, st); }
+                                download-song(id) => { root.download-song(id); }
+                                open-artist(aid) => { root.open-artist(aid); }
+                                open-album(alid) => { root.open-album(alid); }
+                            }
+                        }
+                    }
+                }
+
+                // =============================================================
+                // VIEW 2: ALBUMS BROWSER (Filter Strip + Clean Artwork Rows)
+                // =============================================================
+                if root.active-view == "albums" : VerticalLayout {
+                    vertical-stretch: 1;
+
+                    // Sort / Filter Strip
+                    Rectangle {
+                        height: 42px;
+                        background: Theme.bg-sidebar;
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            padding-top: 7px;
+                            spacing: 6px;
+                            alignment: start;
+
+                            PillButton {
+                                label: "Newest";
+                                active: root.album-sort-type == "newest";
+                                clicked => { root.change-album-sort("newest"); }
+                            }
+                            PillButton {
+                                label: "Recently Played";
+                                active: root.album-sort-type == "recent";
+                                clicked => { root.change-album-sort("recent"); }
+                            }
+                            PillButton {
+                                label: "Most Played";
+                                active: root.album-sort-type == "frequent";
+                                clicked => { root.change-album-sort("frequent"); }
+                            }
+                            PillButton {
+                                label: "Starred";
+                                active: root.album-sort-type == "starred";
+                                clicked => { root.change-album-sort("starred"); }
+                            }
+                            PillButton {
+                                label: "A–Z Title";
+                                active: root.album-sort-type == "alphabeticalByName";
+                                clicked => { root.change-album-sort("alphabeticalByName"); }
+                            }
+                            PillButton {
+                                label: "A–Z Artist";
+                                active: root.album-sort-type == "alphabeticalByArtist";
+                                clicked => { root.change-album-sort("alphabeticalByArtist"); }
+                            }
+                            PillButton {
+                                label: "Random";
+                                active: root.album-sort-type == "random";
+                                clicked => { root.change-album-sort("random"); }
+                            }
+                        }
+                    }
+
+                    Hairline {}
+
+                    ScrollView {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            padding: 18px;
+                            spacing: 14px;
+                            alignment: start;
+
+                            // Clean tabular/shelf rows of albums + instant detail opening
+                            for alb[idx] in root.albums : Rectangle {
+                                height: 64px;
+                                border-radius: 6px;
+                                background: alb-row-touch.has-hover ? Theme.bg-hover : (Math.mod(idx, 2) == 1 ? Theme.bg-row-alt : transparent);
+
+                                alb-row-touch := TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { root.open-album(alb.id); }
+                                }
+
+                                HorizontalLayout {
+                                    padding-left: 10px;
+                                    padding-right: 12px;
+                                    spacing: 14px;
+
+                                    Rectangle {
+                                        width: 48px;
+                                        height: 48px;
+                                        y: 8px;
+                                        border-radius: 5px;
+                                        background: Theme.bg-elevated;
+                                        border-width: 1px;
+                                        border-color: Theme.border-subtle;
+                                        clip: true;
+
+                                        if alb.has_cover : Image {
+                                            width: 100%;
+                                            height: 100%;
+                                            source: alb.cover;
+                                            image-fit: cover;
+                                        }
+                                        if !alb.has_cover : Text {
+                                            text: "♫";
+                                            color: Theme.text-muted;
+                                            font-size: 18px;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    VerticalLayout {
+                                        horizontal-stretch: 3;
+                                        alignment: center;
+                                        spacing: 2px;
+                                        Text {
+                                            text: alb.title;
+                                            color: Theme.text-primary;
+                                            font-size: 14px;
+                                            font-weight: 600;
+                                            overflow: elide;
+                                        }
+                                        Text {
+                                            text: alb.artist;
+                                            color: Theme.text-secondary;
+                                            font-size: 12px;
+                                            overflow: elide;
+                                        }
+                                    }
+
+                                    if !root.is-mobile : Text {
+                                        width: 110px;
+                                        text: alb.genre;
+                                        color: Theme.text-muted;
+                                        font-size: 12px;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                    }
+
+                                    Text {
+                                        width: 50px;
+                                        text: alb.year;
+                                        color: Theme.text-secondary;
+                                        font-size: 12px;
+                                        vertical-alignment: center;
+                                    }
+
+                                    Text {
+                                        width: 80px;
+                                        text: alb.song_count + " songs";
+                                        color: Theme.text-muted;
+                                        font-size: 12px;
+                                        vertical-alignment: center;
+                                        horizontal-alignment: right;
+                                    }
+
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        padding-top: 18px;
+                                        PillButton {
+                                            label: "▶ Play";
+                                            primary: true;
+                                            clicked => { root.play-album(alb.id); }
+                                        }
+                                        PillButton {
+                                            label: "↓";
+                                            clicked => { root.download-album(alb.id); }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // =============================================================
+                // VIEW 3: ALBUM DETAIL (Apple Music Album Header + Tracklist)
+                // =============================================================
+                if root.active-view == "album_detail" : ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        padding: 20px;
+                        spacing: 18px;
+                        alignment: start;
+
+                        // Editorial Album Header
+                        HorizontalLayout {
+                            spacing: 22px;
+
+                            Rectangle {
+                                width: root.is-mobile ? 110px : 176px;
+                                height: root.is-mobile ? 110px : 176px;
+                                border-radius: 8px;
+                                background: Theme.bg-elevated;
+                                border-width: 1px;
+                                border-color: Theme.border-subtle;
+                                clip: true;
+
+                                if root.current-album-detail.has_cover : Image {
+                                    width: 100%;
+                                    height: 100%;
+                                    source: root.current-album-detail.cover;
+                                    image-fit: cover;
+                                }
+                                if !root.current-album-detail.has_cover : Text {
+                                    text: "♫";
+                                    font-size: 46px;
+                                    color: Theme.text-muted;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                alignment: center;
+                                spacing: 6px;
+
+                                Text {
+                                    text: root.current-album-detail.title;
+                                    color: Theme.text-primary;
+                                    font-size: root.is-mobile ? 18px : 24px;
+                                    font-weight: 700;
+                                    overflow: elide;
+                                }
+
+                                Text {
+                                    text: root.current-album-detail.artist;
+                                    color: Theme.accent;
+                                    font-size: root.is-mobile ? 14px : 17px;
+                                    font-weight: 600;
+                                    overflow: elide;
+                                }
+
+                                Text {
+                                    text: (root.current-album-detail.genre != "" ? root.current-album-detail.genre + " · " : "")
+                                        + (root.current-album-detail.year != "" ? root.current-album-detail.year + " · " : "")
+                                        + root.current-album-detail.song_count + " songs, " + root.current-album-detail.duration_text;
+                                    color: Theme.text-secondary;
+                                    font-size: 12px;
+                                }
+
+                                if root.current-album-notes != "" : Text {
+                                    text: root.current-album-notes;
+                                    color: Theme.text-muted;
+                                    font-size: 11px;
+                                    wrap: word-wrap;
+                                }
+
+                                HorizontalLayout {
+                                    padding-top: 8px;
+                                    spacing: 8px;
+                                    alignment: start;
+
+                                    PillButton {
+                                        label: "▶ Play Album";
+                                        primary: true;
+                                        clicked => { root.play-album(root.current-album-detail.id); }
+                                    }
+                                    PillButton {
+                                        label: root.current-album-detail.starred ? "♥ Starred" : "♡ Star Album";
+                                        active: root.current-album-detail.starred;
+                                        clicked => { root.toggle-album-star(root.current-album-detail.id, !root.current-album-detail.starred); }
+                                    }
+                                    PillButton {
+                                        label: "↓ Download Album";
+                                        clicked => { root.download-album(root.current-album-detail.id); }
+                                    }
+                                    PillButton {
+                                        label: "↗ Share";
+                                        clicked => { root.share-current-album(); }
+                                    }
+                                }
+                            }
+                        }
+
+                        Hairline {}
+
+                        // Album Tracklist
+                        VerticalLayout {
+                            TrackTableHeader {
+                                show-album-col: false;
+                                compact: root.is-mobile;
+                            }
+                            for s[idx] in root.current-album-songs : TrackRow {
+                                song: s;
+                                row-index: idx;
+                                show-album-col: false;
+                                compact: root.is-mobile;
+                                play-song(id) => { root.play-song(id); }
+                                queue-song(id) => { root.queue-song(id); }
+                                toggle-star(id, st) => { root.toggle-star(id, st); }
+                                download-song(id) => { root.download-song(id); }
+                                open-artist(aid) => { root.open-artist(aid); }
+                                open-album(alid) => { root.open-album(alid); }
+                            }
+                        }
+                    }
+                }
+
+                // =============================================================
+                // VIEW 4: ARTISTS (Master-Detail Split View)
+                // =============================================================
+                if root.active-view == "artists" : HorizontalLayout {
+                    vertical-stretch: 1;
+
+                    // Left Artist List
+                    Rectangle {
+                        width: root.is-mobile ? 140px : 240px;
+                        background: Theme.bg-sidebar;
+
+                        HorizontalLayout {
+                            ScrollView {
+                                horizontal-stretch: 1;
+                                VerticalLayout {
+                                    padding: 8px;
+                                    spacing: 2px;
+                                    alignment: start;
+
+                                    for art in root.artists : Rectangle {
+                                        height: 34px;
+                                        border-radius: 6px;
+                                        background: root.selected-artist-id == art.id ? Theme.accent
+                                                  : (art-touch.has-hover ? Theme.bg-hover : transparent);
+
+                                        HorizontalLayout {
+                                            padding-left: 10px;
+                                            padding-right: 10px;
+                                            spacing: 8px;
+                                            Text {
+                                                text: art.name;
+                                                color: root.selected-artist-id == art.id ? #ffffff : Theme.text-primary;
+                                                font-size: 13px;
+                                                font-weight: root.selected-artist-id == art.id ? 600 : 400;
+                                                vertical-alignment: center;
+                                                overflow: elide;
+                                                horizontal-stretch: 1;
+                                            }
+                                            Text {
+                                                text: art.album_count;
+                                                color: root.selected-artist-id == art.id ? #ffffffcc : Theme.text-muted;
+                                                font-size: 11px;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+
+                                        art-touch := TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { root.open-artist(art.id); }
+                                        }
+                                    }
+                                }
+                            }
+                            Rectangle {
+                                width: 1px;
+                                background: Theme.border-subtle;
+                            }
+                        }
+                    }
+
+                    // Right Artist Detail Pane
+                    ScrollView {
+                        horizontal-stretch: 1;
+                        VerticalLayout {
+                            padding: 18px;
+                            spacing: 16px;
+                            alignment: start;
+
+                            Text {
+                                text: root.selected-artist-name != "" ? root.selected-artist-name : "Select an Artist";
+                                color: Theme.text-primary;
+                                font-size: 22px;
+                                font-weight: 700;
+                            }
+
+                            if root.selected-artist-bio != "" : Text {
+                                text: root.selected-artist-bio;
+                                color: Theme.text-secondary;
+                                font-size: 12px;
+                                wrap: word-wrap;
+                            }
+
+                            Hairline {}
+
+                            Text {
+                                text: "Albums";
+                                color: Theme.text-primary;
+                                font-size: 14px;
+                                font-weight: 700;
+                            }
+
+                            ScrollView {
+                                height: 214px;
+                                HorizontalLayout {
+                                    spacing: 16px;
+                                    alignment: start;
+                                    for alb in root.selected-artist-albums : AlbumTile {
+                                        album: alb;
+                                        open-album(id) => { root.open-album(id); }
+                                        play-album(id) => { root.play-album(id); }
+                                        toggle-star(id, st) => { root.toggle-album-star(id, st); }
+                                    }
+                                }
+                            }
+
+                            Hairline {}
+
+                            Text {
+                                text: "Top Songs & Tracks";
+                                color: Theme.text-primary;
+                                font-size: 14px;
+                                font-weight: 700;
+                            }
+
+                            TrackTableHeader {
+                                compact: root.is-mobile;
+                            }
+
+                            for s[idx] in root.selected-artist-top-songs : TrackRow {
+                                song: s;
+                                row-index: idx;
+                                compact: root.is-mobile;
+                                play-song(id) => { root.play-song(id); }
+                                queue-song(id) => { root.queue-song(id); }
+                                toggle-star(id, st) => { root.toggle-star(id, st); }
+                                download-song(id) => { root.download-song(id); }
+                                open-artist(aid) => { root.open-artist(aid); }
+                                open-album(alid) => { root.open-album(alid); }
+                            }
+                        }
+                    }
+                }
+
+                // =============================================================
+                // VIEW 5: SONGS (High-Density Apple Music Tabular Track Browser)
+                // =============================================================
+                if root.active-view == "songs" || root.active-view == "favorites" || root.active-view == "search" : VerticalLayout {
+                    vertical-stretch: 1;
+
+                    TrackTableHeader {
+                        compact: root.is-mobile;
+                    }
+
+                    ScrollView {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            alignment: start;
+                            for s[idx] in root.songs : TrackRow {
+                                song: s;
+                                row-index: idx;
+                                compact: root.is-mobile;
+                                play-song(id) => { root.play-song(id); }
+                                queue-song(id) => { root.queue-song(id); }
+                                toggle-star(id, st) => { root.toggle-star(id, st); }
+                                download-song(id) => { root.download-song(id); }
+                                open-artist(aid) => { root.open-artist(aid); }
+                                open-album(alid) => { root.open-album(alid); }
+                            }
+                        }
+                    }
+                }
+
+                // =============================================================
+                // VIEW 6: GENRES (Split View: Genre List + Songs by Genre)
+                // =============================================================
+                if root.active-view == "genres" : HorizontalLayout {
+                    vertical-stretch: 1;
+
+                    Rectangle {
+                        width: root.is-mobile ? 130px : 220px;
+                        background: Theme.bg-sidebar;
+                        HorizontalLayout {
+                            ScrollView {
+                                horizontal-stretch: 1;
+                                VerticalLayout {
+                                    padding: 8px;
+                                    spacing: 2px;
+                                    alignment: start;
+                                    for g in root.genres : Rectangle {
+                                        height: 32px;
+                                        border-radius: 6px;
+                                        background: root.selected-genre-name == g.name ? Theme.accent
+                                                  : (g-touch.has-hover ? Theme.bg-hover : transparent);
+                                        HorizontalLayout {
+                                            padding-left: 10px;
+                                            padding-right: 10px;
+                                            Text {
+                                                text: g.name;
+                                                color: root.selected-genre-name == g.name ? #ffffff : Theme.text-primary;
+                                                font-size: 13px;
+                                                vertical-alignment: center;
+                                                overflow: elide;
+                                                horizontal-stretch: 1;
+                                            }
+                                            Text {
+                                                text: g.song_count;
+                                                color: root.selected-genre-name == g.name ? #ffffffcc : Theme.text-muted;
+                                                font-size: 11px;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+                                        g-touch := TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { root.select-genre(g.name); }
+                                        }
+                                    }
+                                }
+                            }
+                            Rectangle {
+                                width: 1px;
+                                background: Theme.border-subtle;
+                            }
+                        }
+                    }
+
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        TrackTableHeader {
+                            compact: root.is-mobile;
+                        }
+                        ScrollView {
+                            vertical-stretch: 1;
+                            VerticalLayout {
+                                alignment: start;
+                                for s[idx] in root.songs : TrackRow {
+                                    song: s;
+                                    row-index: idx;
+                                    compact: root.is-mobile;
+                                    play-song(id) => { root.play-song(id); }
+                                    queue-song(id) => { root.queue-song(id); }
+                                    toggle-star(id, st) => { root.toggle-star(id, st); }
+                                    download-song(id) => { root.download-song(id); }
+                                    open-artist(aid) => { root.open-artist(aid); }
+                                    open-album(alid) => { root.open-album(alid); }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // =============================================================
+                // VIEW 7: DOWNLOADED / OFFLINE MUSIC
+                // =============================================================
+                if root.active-view == "downloads" : VerticalLayout {
+                    vertical-stretch: 1;
+
+                    Rectangle {
+                        height: 48px;
+                        background: Theme.bg-sidebar;
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            spacing: 12px;
+
+                            Text {
+                                text: root.downloads-summary-text;
+                                color: Theme.text-secondary;
+                                font-size: 12px;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+
+                            PillButton {
+                                y: 10px;
+                                label: root.config-auto-download-streamed ? "✓ Auto-Download on Stream: ON" : "Auto-Download on Stream: OFF";
+                                active: root.config-auto-download-streamed;
+                                clicked => {
+                                    root.config-auto-download-streamed = !root.config-auto-download-streamed;
+                                    root.toggle-auto-download-streamed(root.config-auto-download-streamed);
+                                }
+                            }
+
+                            PillButton {
+                                y: 10px;
+                                label: "Clear Offline Cache";
+                                clicked => { root.clear-downloads(); }
+                            }
+                        }
+                    }
+
+                    Hairline {}
+
+                    TrackTableHeader {
+                        compact: root.is-mobile;
+                    }
+
+                    ScrollView {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            alignment: start;
+                            for s[idx] in root.downloaded-songs : TrackRow {
+                                song: s;
+                                row-index: idx;
+                                compact: root.is-mobile;
+                                play-song(id) => { root.play-song(id); }
+                                queue-song(id) => { root.queue-song(id); }
+                                toggle-star(id, st) => { root.toggle-star(id, st); }
+                                download-song(id) => { root.download-song(id); }
+                                open-artist(aid) => { root.open-artist(aid); }
+                                open-album(alid) => { root.open-album(alid); }
+                            }
+                        }
+                    }
+                }
+
+                // =============================================================
+                // VIEW 8: PLAYLISTS
+                // =============================================================
+                if root.active-view == "playlists" : VerticalLayout {
+                    vertical-stretch: 1;
+
+                    // Playlist Header & Management Bar
+                    Rectangle {
+                        height: 54px;
+                        background: Theme.bg-sidebar;
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            spacing: 10px;
+
+                            VerticalLayout {
+                                alignment: center;
+                                horizontal-stretch: 1;
+                                Text {
+                                    text: root.selected-playlist-name != "" ? root.selected-playlist-name : "Select or Create a Playlist";
+                                    color: Theme.text-primary;
+                                    font-size: 15px;
+                                    font-weight: 700;
+                                }
+                                Text {
+                                    text: root.selected-playlist-count + " songs · " + root.selected-playlist-duration;
+                                    color: Theme.text-secondary;
+                                    font-size: 11px;
+                                }
+                            }
+
+                            LineEdit {
+                                width: 150px;
+                                height: 28px;
+                                y: 13px;
+                                font-size: 12px;
+                                placeholder-text: "New playlist name...";
+                                text <=> root.new-playlist-name;
+                            }
+
+                            PillButton {
+                                y: 13px;
+                                label: "+ Create";
+                                primary: true;
+                                clicked => { root.create-new-playlist(root.new-playlist-name); }
+                            }
+
+                            if root.selected-playlist-id != "" && root.now-playing-id != "" : PillButton {
+                                y: 13px;
+                                label: "+ Add Playing Song";
+                                clicked => { root.add-current-song-to-playlist(root.selected-playlist-id); }
+                            }
+
+                            if root.selected-playlist-id != "" : PillButton {
+                                y: 13px;
+                                label: "↓ Download Playlist";
+                                clicked => { root.download-selected-playlist(); }
+                            }
+
+                            if root.selected-playlist-id != "" : PillButton {
+                                y: 13px;
+                                label: "Delete";
+                                clicked => { root.delete-selected-playlist(); }
+                            }
+                        }
+                    }
+
+                    Hairline {}
+
+                    TrackTableHeader {
+                        compact: root.is-mobile;
+                    }
+
+                    ScrollView {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            alignment: start;
+                            for s[idx] in root.playlist-songs : TrackRow {
+                                song: s;
+                                row-index: idx;
+                                compact: root.is-mobile;
+                                allow-remove: true;
+                                play-song(id) => { root.play-song(id); }
+                                queue-song(id) => { root.queue-song(id); }
+                                toggle-star(id, st) => { root.toggle-star(id, st); }
+                                download-song(id) => { root.download-song(id); }
+                                open-artist(aid) => { root.open-artist(aid); }
+                                open-album(alid) => { root.open-album(alid); }
+                                remove-from-playlist(ridx) => { root.remove-song-from-selected-playlist(ridx); }
+                            }
+                        }
+                    }
+                }
+
+                // =============================================================
+                // VIEW 9: SETTINGS (Navidrome Server, Multi-Library, Streaming/Download Rates, Auto-Download)
+                // =============================================================
+                if root.active-view == "settings" : ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        padding: 24px;
+                        spacing: 22px;
+                        alignment: start;
+
+                        // Section 1: Navidrome Server Connection
+                        VerticalLayout {
+                            spacing: 10px;
+                            Text {
+                                text: "NAVIDROME / OPENSUBSONIC SERVER";
+                                color: Theme.text-muted;
+                                font-size: 11px;
+                                font-weight: 700;
+                            }
+                            HorizontalLayout {
+                                spacing: 12px;
+                                Text {
+                                    width: 130px;
+                                    text: "Server URL";
+                                    color: Theme.text-secondary;
+                                    font-size: 13px;
+                                    vertical-alignment: center;
+                                }
+                                LineEdit {
+                                    horizontal-stretch: 1;
+                                    height: 30px;
+                                    text <=> root.config-server-url;
+                                    placeholder-text: "https://music.example.com or http://localhost:4533";
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 12px;
+                                Text {
+                                    width: 130px;
+                                    text: "Username";
+                                    color: Theme.text-secondary;
+                                    font-size: 13px;
+                                    vertical-alignment: center;
+                                }
+                                LineEdit {
+                                    horizontal-stretch: 1;
+                                    height: 30px;
+                                    text <=> root.config-username;
+                                    placeholder-text: "Navidrome username";
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 12px;
+                                Text {
+                                    width: 130px;
+                                    text: "Password";
+                                    color: Theme.text-secondary;
+                                    font-size: 13px;
+                                    vertical-alignment: center;
+                                }
+                                LineEdit {
+                                    horizontal-stretch: 1;
+                                    height: 30px;
+                                    input-type: password;
+                                    text <=> root.config-password;
+                                    placeholder-text: "Authenticated via Subsonic MD5 token + salt";
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 10px;
+                                alignment: start;
+                                PillButton {
+                                    label: "Connect & Sync Libraries";
+                                    primary: true;
+                                    clicked => { root.save-and-connect(); }
+                                }
+                                PillButton {
+                                    label: "Quick Scan";
+                                    clicked => { root.trigger-server-scan(false); }
+                                }
+                                PillButton {
+                                    label: "Full Rescan (Navidrome)";
+                                    clicked => { root.trigger-server-scan(true); }
+                                }
+                            }
+                            Text {
+                                text: "Server Status: " + root.server-version-badge + " · Scan count: " + root.scan-count + " · Last scan: " + root.scan-last-time;
+                                color: Theme.text-muted;
+                                font-size: 11px;
+                            }
+                        }
+
+                        Hairline {}
+
+                        // Section 2: Multi-Library Selection (Navidrome getMusicFolders + musicFolderId)
+                        VerticalLayout {
+                            spacing: 10px;
+                            HorizontalLayout {
+                                Text {
+                                    text: "VISIBLE LIBRARIES (MULTI-LIBRARY SELECTION)";
+                                    color: Theme.text-muted;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    horizontal-stretch: 1;
+                                    vertical-alignment: center;
+                                }
+                                PillButton {
+                                    label: "Select All Libraries";
+                                    clicked => { root.select-all-libraries(); }
+                                }
+                            }
+                            Text {
+                                text: "Select one or multiple Navidrome libraries (`musicFolderId`) to include in Listen Now, Albums, Artists, Songs, Genres, Favorites, and Search.";
+                                color: Theme.text-secondary;
+                                font-size: 12px;
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                for lib in root.libraries : PillButton {
+                                    label: (lib.selected ? "✓ " : "") + lib.name + " (#" + lib.id + ")";
+                                    active: lib.selected;
+                                    clicked => { root.toggle-library(lib.id); }
+                                }
+                            }
+                        }
+
+                        Hairline {}
+
+                        // Section 3: Configurable Streaming Rate & Format
+                        VerticalLayout {
+                            spacing: 10px;
+                            Text {
+                                text: "STREAMING QUALITY & TRANSCODING (`stream` endpoint)";
+                                color: Theme.text-muted;
+                                font-size: 11px;
+                                font-weight: 700;
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Text {
+                                    width: 130px;
+                                    text: "Stream Format";
+                                    color: Theme.text-secondary;
+                                    font-size: 13px;
+                                    vertical-alignment: center;
+                                }
+                                PillButton {
+                                    label: "Original (raw)";
+                                    active: root.config-stream-format == "raw";
+                                    clicked => { root.set-stream-format("raw"); }
+                                }
+                                PillButton {
+                                    label: "FLAC";
+                                    active: root.config-stream-format == "flac";
+                                    clicked => { root.set-stream-format("flac"); }
+                                }
+                                PillButton {
+                                    label: "Opus";
+                                    active: root.config-stream-format == "opus";
+                                    clicked => { root.set-stream-format("opus"); }
+                                }
+                                PillButton {
+                                    label: "MP3";
+                                    active: root.config-stream-format == "mp3";
+                                    clicked => { root.set-stream-format("mp3"); }
+                                }
+                                PillButton {
+                                    label: "AAC";
+                                    active: root.config-stream-format == "aac";
+                                    clicked => { root.set-stream-format("aac"); }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Text {
+                                    width: 130px;
+                                    text: "Max Bitrate (kbps)";
+                                    color: Theme.text-secondary;
+                                    font-size: 13px;
+                                    vertical-alignment: center;
+                                }
+                                PillButton {
+                                    label: "Unlimited (0)";
+                                    active: root.config-stream-bitrate == 0;
+                                    clicked => { root.set-stream-bitrate(0); }
+                                }
+                                PillButton {
+                                    label: "320 kbps";
+                                    active: root.config-stream-bitrate == 320;
+                                    clicked => { root.set-stream-bitrate(320); }
+                                }
+                                PillButton {
+                                    label: "256 kbps";
+                                    active: root.config-stream-bitrate == 256;
+                                    clicked => { root.set-stream-bitrate(256); }
+                                }
+                                PillButton {
+                                    label: "192 kbps";
+                                    active: root.config-stream-bitrate == 192;
+                                    clicked => { root.set-stream-bitrate(192); }
+                                }
+                                PillButton {
+                                    label: "128 kbps";
+                                    active: root.config-stream-bitrate == 128;
+                                    clicked => { root.set-stream-bitrate(128); }
+                                }
+                                PillButton {
+                                    label: "96 kbps";
+                                    active: root.config-stream-bitrate == 96;
+                                    clicked => { root.set-stream-bitrate(96); }
+                                }
+                                PillButton {
+                                    label: "64 kbps";
+                                    active: root.config-stream-bitrate == 64;
+                                    clicked => { root.set-stream-bitrate(64); }
+                                }
+                            }
+                        }
+
+                        Hairline {}
+
+                        // Section 4: Configurable Download Rate, Format & Auto-Download Toggle
+                        VerticalLayout {
+                            spacing: 10px;
+                            Text {
+                                text: "DOWNLOAD QUALITY & AUTO-DOWNLOAD (`download` endpoint)";
+                                color: Theme.text-muted;
+                                font-size: 11px;
+                                font-weight: 700;
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Text {
+                                    width: 130px;
+                                    text: "Download Format";
+                                    color: Theme.text-secondary;
+                                    font-size: 13px;
+                                    vertical-alignment: center;
+                                }
+                                PillButton {
+                                    label: "Original (raw)";
+                                    active: root.config-download-format == "raw";
+                                    clicked => { root.set-download-format("raw"); }
+                                }
+                                PillButton {
+                                    label: "FLAC";
+                                    active: root.config-download-format == "flac";
+                                    clicked => { root.set-download-format("flac"); }
+                                }
+                                PillButton {
+                                    label: "Opus";
+                                    active: root.config-download-format == "opus";
+                                    clicked => { root.set-download-format("opus"); }
+                                }
+                                PillButton {
+                                    label: "MP3";
+                                    active: root.config-download-format == "mp3";
+                                    clicked => { root.set-download-format("mp3"); }
+                                }
+                                PillButton {
+                                    label: "AAC";
+                                    active: root.config-download-format == "aac";
+                                    clicked => { root.set-download-format("aac"); }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Text {
+                                    width: 130px;
+                                    text: "Download Bitrate";
+                                    color: Theme.text-secondary;
+                                    font-size: 13px;
+                                    vertical-alignment: center;
+                                }
+                                PillButton {
+                                    label: "Unlimited (0)";
+                                    active: root.config-download-bitrate == 0;
+                                    clicked => { root.set-download-bitrate(0); }
+                                }
+                                PillButton {
+                                    label: "320 kbps";
+                                    active: root.config-download-bitrate == 320;
+                                    clicked => { root.set-download-bitrate(320); }
+                                }
+                                PillButton {
+                                    label: "256 kbps";
+                                    active: root.config-download-bitrate == 256;
+                                    clicked => { root.set-download-bitrate(256); }
+                                }
+                                PillButton {
+                                    label: "192 kbps";
+                                    active: root.config-download-bitrate == 192;
+                                    clicked => { root.set-download-bitrate(192); }
+                                }
+                                PillButton {
+                                    label: "128 kbps";
+                                    active: root.config-download-bitrate == 128;
+                                    clicked => { root.set-download-bitrate(128); }
+                                }
+                                PillButton {
+                                    label: "96 kbps";
+                                    active: root.config-download-bitrate == 96;
+                                    clicked => { root.set-download-bitrate(96); }
+                                }
+                                PillButton {
+                                    label: "64 kbps";
+                                    active: root.config-download-bitrate == 64;
+                                    clicked => { root.set-download-bitrate(64); }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 12px;
+                                alignment: start;
+                                Text {
+                                    width: 130px;
+                                    text: "Auto-Download";
+                                    color: Theme.text-secondary;
+                                    font-size: 13px;
+                                    vertical-alignment: center;
+                                }
+                                PillButton {
+                                    label: root.config-auto-download-streamed
+                                        ? "✓ Automatically download tracks when streamed once (Enabled)"
+                                        : "Automatically download tracks when streamed once (Disabled)";
+                                    active: root.config-auto-download-streamed;
+                                    clicked => {
+                                        root.config-auto-download-streamed = !root.config-auto-download-streamed;
+                                        root.toggle-auto-download-streamed(root.config-auto-download-streamed);
+                                    }
+                                }
+                            }
+                        }
+
+                        Hairline {}
+
+                        // Section 5: Shares & WebUI Info
+                        VerticalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: "WEBUI & NAVIDROME SHARES";
+                                color: Theme.text-muted;
+                                font-size: 11px;
+                                font-weight: 700;
+                            }
+                            Text {
+                                text: "Built-in WebUI Server running at http://localhost:" + root.config-webui-port + " (and Wasm target supported via `web/index.html`).";
+                                color: Theme.text-secondary;
+                                font-size: 12px;
+                            }
+                            for sh in root.shares : HorizontalLayout {
+                                spacing: 10px;
+                                Text {
+                                    text: sh.description + " — " + sh.url + " (" + sh.visit_count + " visits)";
+                                    color: Theme.text-primary;
+                                    font-size: 12px;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 1;
+                                }
+                                PillButton {
+                                    label: "Delete Share";
+                                    clicked => { root.delete-share(sh.id); }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // -----------------------------------------------------------------
+            // RIGHT INSPECTION DRAWER (Synchronized Lyrics or Up Next Queue)
+            // -----------------------------------------------------------------
+            if root.right-drawer != "none" && !root.is-mobile : Rectangle {
+                width: 300px;
+                background: Theme.bg-sidebar;
+
+                HorizontalLayout {
+                    Rectangle {
+                        width: 1px;
+                        background: Theme.border-subtle;
+                    }
+
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        padding: 14px;
+                        spacing: 10px;
+
+                        HorizontalLayout {
+                            Text {
+                                text: root.right-drawer == "lyrics" ? "Lyrics" : "Up Next";
+                                color: Theme.text-primary;
+                                font-size: 15px;
+                                font-weight: 700;
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                            }
+                            if root.right-drawer == "queue" : HorizontalLayout {
+                                spacing: 4px;
+                                PillButton {
+                                    label: "Sync↑";
+                                    clicked => { root.save-queue-to-server(); }
+                                }
+                                PillButton {
+                                    label: "Sync↓";
+                                    clicked => { root.load-queue-from-server(); }
+                                }
+                                PillButton {
+                                    label: "Clear";
+                                    clicked => { root.clear-queue(); }
+                                }
+                            }
+                        }
+
+                        Hairline {}
+
+                        // Synchronized Lyrics View
+                        if root.right-drawer == "lyrics" : ScrollView {
+                            vertical-stretch: 1;
+                            VerticalLayout {
+                                spacing: 12px;
+                                padding-top: 8px;
+                                alignment: start;
+
+                                for line in root.lyrics-lines : Text {
+                                    text: line.text;
+                                    color: line.active ? Theme.text-primary : Theme.text-secondary;
+                                    font-size: line.active ? 16px : 13px;
+                                    font-weight: line.active ? 700 : 500;
+                                    wrap: word-wrap;
+                                }
+                            }
+                        }
+
+                        // Up Next Queue View
+                        if root.right-drawer == "queue" : ScrollView {
+                            vertical-stretch: 1;
+                            VerticalLayout {
+                                spacing: 4px;
+                                alignment: start;
+
+                                for qs in root.queue-songs : Rectangle {
+                                    height: 40px;
+                                    border-radius: 5px;
+                                    background: qs.is_playing ? Theme.bg-selected : (q-item-touch.has-hover ? Theme.bg-hover : transparent);
+
+                                    HorizontalLayout {
+                                        padding-left: 8px;
+                                        padding-right: 8px;
+                                        spacing: 8px;
+
+                                        VerticalLayout {
+                                            horizontal-stretch: 1;
+                                            alignment: center;
+                                            Text {
+                                                text: qs.title;
+                                                color: qs.is_playing ? Theme.accent : Theme.text-primary;
+                                                font-size: 12px;
+                                                font-weight: qs.is_playing ? 600 : 400;
+                                                overflow: elide;
+                                            }
+                                            Text {
+                                                text: qs.artist;
+                                                color: Theme.text-secondary;
+                                                font-size: 11px;
+                                                overflow: elide;
+                                            }
+                                        }
+
+                                        Text {
+                                            text: qs.duration_text;
+                                            color: Theme.text-muted;
+                                            font-size: 11px;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    q-item-touch := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { root.play-song(qs.id); }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // =====================================================================
+        // DESKTOP TRANSPORT BAR
+        // =====================================================================
+        if !root.is-mobile : Rectangle {
+            height: 76px;
+            background: Theme.bg-transport;
+
+            VerticalLayout {
+                Hairline {}
+
+                HorizontalLayout {
+                    vertical-stretch: 1;
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    spacing: 16px;
+
+                    // Left: Artwork + Track Metadata + Star/Local indicators
+                    HorizontalLayout {
+                        width: 320px;
+                        spacing: 12px;
+
+                        Rectangle {
+                            width: 48px;
+                            height: 48px;
+                            y: 13px;
+                            border-radius: 6px;
+                            background: Theme.bg-elevated;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
+                            clip: true;
+
+                            if root.now-playing-has-cover : Image {
+                                width: 100%;
+                                height: 100%;
+                                source: root.now-playing-cover;
+                                image-fit: cover;
+                            }
+                            if !root.now-playing-has-cover : Text {
+                                text: "♫";
+                                color: Theme.text-muted;
+                                font-size: 20px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    if (root.now-playing-album-id != "") {
+                                        root.open-album(root.now-playing-album-id);
+                                    }
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            alignment: center;
+                            spacing: 2px;
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                Text {
+                                    text: root.now-playing-title;
+                                    color: Theme.text-primary;
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    overflow: elide;
+                                    vertical-alignment: center;
+                                }
+                                if root.now-playing-is-local : Rectangle {
+                                    width: 42px;
+                                    height: 15px;
+                                    border-radius: 3px;
+                                    background: #30d15824;
+                                    Text {
+                                        text: "LOCAL";
+                                        color: Theme.green-badge;
+                                        font-size: 9px;
+                                        font-weight: 700;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+
+                            Text {
+                                text: root.now-playing-artist + (root.now-playing-album != "" ? " — " + root.now-playing-album : "");
+                                color: Theme.text-secondary;
+                                font-size: 11px;
+                                overflow: elide;
+                            }
+                        }
+
+                        if root.now-playing-id != "" : Rectangle {
+                            width: 24px;
+                            Text {
+                                text: root.now-playing-starred ? "♥" : "♡";
+                                color: root.now-playing-starred ? Theme.accent : Theme.text-secondary;
+                                font-size: 15px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.toggle-star(root.now-playing-id, !root.now-playing-starred); }
+                            }
+                        }
+                    }
+
+                    // Center: Transport Controls + Progress Bar
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        alignment: center;
+                        spacing: 4px;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: 14px;
+
+                            PillButton {
+                                label: root.shuffle-enabled ? "⇄ On" : "⇄";
+                                active: root.shuffle-enabled;
+                                clicked => { root.toggle-shuffle(); }
+                            }
+                            PillButton {
+                                label: "⏮";
+                                clicked => { root.transport-prev(); }
+                            }
+                            PillButton {
+                                label: root.is-playing ? "⏸ Pause" : "▶ Play";
+                                primary: true;
+                                clicked => { root.transport-play-pause(); }
+                            }
+                            PillButton {
+                                label: "⏭";
+                                clicked => { root.transport-next(); }
+                            }
+                            PillButton {
+                                label: root.repeat-mode == "one" ? "↻ 1" : (root.repeat-mode == "all" ? "↻ All" : "↻");
+                                active: root.repeat-mode != "off";
+                                clicked => { root.cycle-repeat(); }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text {
+                                width: 38px;
+                                text: root.playback-current-time;
+                                color: Theme.text-muted;
+                                font-size: 10px;
+                                horizontal-alignment: right;
+                                vertical-alignment: center;
+                            }
+                            Slider {
+                                horizontal-stretch: 1;
+                                height: 16px;
+                                minimum: 0.0;
+                                maximum: 1.0;
+                                value <=> root.playback-progress;
+                                changed(val) => { root.transport-seek(val); }
+                            }
+                            Text {
+                                width: 38px;
+                                text: root.playback-total-time;
+                                color: Theme.text-muted;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Right: Stream/Lossless Quality Badge + Star Rating + Volume
+                    HorizontalLayout {
+                        width: 310px;
+                        spacing: 10px;
+                        alignment: end;
+
+                        // Audio Quality Badge
+                        Rectangle {
+                            height: 22px;
+                            y: 26px;
+                            width: 112px;
+                            border-radius: 4px;
+                            background: Theme.bg-elevated;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
+                            Text {
+                                text: root.now-playing-quality;
+                                color: Theme.text-secondary;
+                                font-size: 10px;
+                                font-weight: 600;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                                overflow: elide;
+                            }
+                        }
+
+                        // 5-Star Rating selector
+                        if root.now-playing-id != "" : HorizontalLayout {
+                            spacing: 2px;
+                            for star-val in [1, 2, 3, 4, 5] : Rectangle {
+                                width: 14px;
+                                Text {
+                                    text: root.now-playing-rating >= star-val ? "★" : "☆";
+                                    color: root.now-playing-rating >= star-val ? Theme.accent : Theme.text-muted;
+                                    font-size: 12px;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                                TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { root.set-song-rating(root.now-playing-id, star-val); }
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: "🔊";
+                            color: Theme.text-secondary;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+
+                        Slider {
+                            width: 78px;
+                            height: 16px;
+                            y: 29px;
+                            minimum: 0.0;
+                            maximum: 1.0;
+                            value <=> root.volume;
+                            changed(val) => { root.transport-volume(val); }
+                        }
+                    }
+                }
+            }
+        }
+
+        // =====================================================================
+        // MOBILE MINI-PLAYER + BOTTOM TAB BAR (Apple Music iOS Style)
+        // =====================================================================
+        if root.is-mobile : VerticalLayout {
+            // Mini Player Bar
+            Rectangle {
+                height: 54px;
+                background: Theme.bg-elevated;
+
+                VerticalLayout {
+                    Hairline {}
+                    HorizontalLayout {
+                        vertical-stretch: 1;
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        spacing: 10px;
+
+                        Rectangle {
+                            width: 38px;
+                            height: 38px;
+                            y: 7px;
+                            border-radius: 5px;
+                            background: Theme.bg-sidebar;
+                            clip: true;
+                            if root.now-playing-has-cover : Image {
+                                width: 100%;
+                                height: 100%;
+                                source: root.now-playing-cover;
+                                image-fit: cover;
+                            }
+                            if !root.now-playing-has-cover : Text {
+                                text: "♫";
+                                color: Theme.text-muted;
+                                font-size: 16px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            alignment: center;
+                            Text {
+                                text: root.now-playing-title;
+                                color: Theme.text-primary;
+                                font-size: 13px;
+                                font-weight: 600;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: root.now-playing-artist + " · " + root.now-playing-quality;
+                                color: Theme.text-secondary;
+                                font-size: 11px;
+                                overflow: elide;
+                            }
+                        }
+
+                        PillButton {
+                            y: 12px;
+                            label: root.is-playing ? "⏸" : "▶";
+                            primary: true;
+                            clicked => { root.transport-play-pause(); }
+                        }
+                        PillButton {
+                            y: 12px;
+                            label: "⏭";
+                            clicked => { root.transport-next(); }
+                        }
+                    }
+                }
+            }
+
+            // Bottom Tab Bar
+            Rectangle {
+                height: 52px;
+                background: Theme.bg-transport;
+
+                VerticalLayout {
+                    Hairline {}
+                    HorizontalLayout {
+                        vertical-stretch: 1;
+                        padding-left: 6px;
+                        padding-right: 6px;
+
+                        for tab in [
+                            { id: "listen_now", icon: "♫", title: "Listen Now" },
+                            { id: "albums", icon: "◉", title: "Albums" },
+                            { id: "artists", icon: "◎", title: "Artists" },
+                            { id: "songs", icon: "≡", title: "Songs" },
+                            { id: "downloads", icon: "↓", title: "Offline" },
+                            { id: "settings", icon: "⚙", title: "Settings" },
+                        ] : Rectangle {
+                            horizontal-stretch: 1;
+                            VerticalLayout {
+                                alignment: center;
+                                Text {
+                                    text: tab.icon;
+                                    color: root.active-view == tab.id ? Theme.accent : Theme.text-secondary;
+                                    font-size: 15px;
+                                    horizontal-alignment: center;
+                                }
+                                Text {
+                                    text: tab.title;
+                                    color: root.active-view == tab.id ? Theme.accent : Theme.text-muted;
+                                    font-size: 10px;
+                                    font-weight: root.active-view == tab.id ? 600 : 400;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.navigate(tab.id); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

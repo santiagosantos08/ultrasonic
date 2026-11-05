@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ultrasonic — Navidrome Music</title>
+  <style>
+    :root {
+      --bg-canvas: #111113;
+      --bg-sidebar: #161618;
+      --bg-elevated: #1c1c1f;
+      --bg-transport: #18181b;
+      --border: #242428;
+      --accent: #fa2d48;
+      --green: #30d158;
+      --text-primary: #f5f5f7;
+      --text-secondary: #98989f;
+      --text-muted: #636369;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+      background: var(--bg-canvas);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #wasm-container { display: none; width: 100vw; height: 100vh; }
+    canvas#canvas { width: 100%; height: 100%; display: block; }
+    .workspace { display: flex; flex: 1; overflow: hidden; }
+    aside {
+      width: 240px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+    }
+    .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+    .dot.ok { background: var(--green); }
+    .sec-title { font-size: 10px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.06em; margin-bottom: 4px; }
+    .nav-btn, .lib-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 10px; border-radius: 6px; font-size: 13px; color: var(--text-primary);
+      cursor: pointer; user-select: none; border: none; background: transparent; width: 100%; text-align: left;
+    }
+    .nav-btn:hover, .lib-row:hover { background: #222227; }
+    .nav-btn.active { background: var(--accent); color: #fff; font-weight: 600; }
+    .chk {
+      width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border);
+      display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-right: 8px;
+    }
+    .chk.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+    main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    header {
+      height: 48px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 18px;
+    }
+    .pill {
+      background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary);
+      padding: 5px 12px; border-radius: 6px; font-size: 12px; cursor: pointer;
+    }
+    .pill.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    .content { flex: 1; overflow-y: auto; padding: 18px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left; font-size: 11px; color: var(--text-muted); font-weight: 600;
+      padding: 8px 10px; border-bottom: 1px solid var(--border);
+    }
+    td { padding: 8px 10px; border-bottom: 1px solid #19191d; }
+    tr:hover td { background: #1e1e24; cursor: pointer; }
+    .badge {
+      display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px;
+      font-weight: 600; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary);
+    }
+    .badge.local { color: var(--green); border-color: #30d15844; background: #30d15818; }
+    .connect-box {
+      max-width: 460px; margin: 30px auto; display: flex; flex-direction: column; gap: 10px;
+    }
+    .connect-box input {
+      background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary);
+      padding: 8px 10px; border-radius: 6px; font-size: 13px;
+    }
+    footer {
+      height: 74px; background: var(--bg-transport); border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 18px; gap: 16px;
+    }
+    @media (max-width: 740px) {
+      aside { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="wasm-container"><canvas id="canvas"></canvas></div>
+  <div class="workspace" id="webui-app">
+    <aside>
+      <div class="brand"><span class="dot" id="conn-dot"></span> Music <span style="font-size:10px;color:var(--text-muted)">WEBUI</span></div>
+      <div>
+        <div class="sec-title">LIBRARIES (MULTI-SELECT)</div>
+        <div id="lib-list"></div>
+      </div>
+      <div>
+        <div class="sec-title">APPLE MUSIC</div>
+        <button class="nav-btn active" onclick="setFilter('all', this)">♫ Listen Now & Songs</button>
+        <button class="nav-btn" onclick="setFilter('starred', this)">♥ Favorites</button>
+        <button class="nav-btn" onclick="setFilter('local', this)">↓ Downloaded Offline</button>
+      </div>
+      <div style="margin-top:auto;border-top:1px solid var(--border);padding-top:10px;font-size:11px;color:var(--text-secondary)">
+        <div id="rate-summary">Stream: RAW · Auto-DL: ON</div>
+      </div>
+    </aside>
+    <main>
+      <header>
+        <div style="display:flex;align-items:center;gap:10px">
+          <strong style="font-size:17px">Navidrome Music</strong>
+          <span class="badge" id="active-lib-pill">Not Connected</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="pill" onclick="toggleAutoDl()" id="autodl-btn">✓ Auto-Download on Stream</button>
+          <button class="pill primary" onclick="refreshState()">↻ Sync</button>
+        </div>
+      </header>
+      <div class="content">
+        <div id="connect-panel" class="connect-box" style="display:none">
+          <strong style="font-size:16px">Connect to Navidrome Server</strong>
+          <input id="srv-url" placeholder="http://localhost:4533" />
+          <input id="srv-user" placeholder="Username" />
+          <input id="srv-pass" type="password" placeholder="Password" />
+          <button class="pill primary" onclick="connectServer()">Connect & Sync Libraries</button>
+        </div>
+        <table id="songs-table">
+          <thead>
+            <tr><th>#</th><th>♥</th><th>TITLE</th><th>ARTIST</th><th>ALBUM</th><th>QUALITY</th><th>STATUS</th><th>TIME</th></tr>
+          </thead>
+          <tbody id="track-tbody"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+  <footer>
+    <div style="min-width:220px">
+      <div id="np-title" style="font-weight:600;font-size:13px">Not Playing</div>
+      <div id="np-artist" style="font-size:11px;color:var(--text-secondary)">Connect to Navidrome and click any track</div>
+    </div>
+    <audio id="audio-player" controls style="flex:1;max-width:540px;height:34px"></audio>
+    <div class="badge" id="np-quality">READY</div>
+  </footer>
+  <script>
+    let state = { connected: false, libraries: [], selected_libraries: [], songs: [], auto_download: true, filter: 'all' };
+    async function refreshState() {
+      try {
+        const res = await fetch('/api/state');
+        if (res.ok) {
+          state = { ...state, ...(await res.json()) };
+          render();
+        }
+      } catch (_) {}
+    }
+    async function connectServer() {
+      const server_url = document.getElementById('srv-url').value;
+      const username = document.getElementById('srv-user').value;
+      const password = document.getElementById('srv-pass').value;
+      await fetch('/api/connect', {
+        method: 'POST',
+        body: JSON.stringify({ server_url, username, password }),
+      });
+      await refreshState();
+    }
+    async function toggleLib(id) {
+      await fetch('/api/toggle-library/' + encodeURIComponent(id), { method: 'POST' });
+      await refreshState();
+    }
+    function setFilter(f, btn) {
+      state.filter = f;
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render();
+    }
+    function toggleAutoDl() {
+      state.auto_download = !state.auto_download;
+      fetch('/api/toggle-autodl', { method: 'POST' }).catch(() => {});
+      render();
+    }
+    function playSong(song) {
+      document.getElementById('np-title').textContent = song.title;
+      document.getElementById('np-artist').textContent = song.artist + ' — ' + song.album;
+      document.getElementById('np-quality').textContent = song.quality;
+      const player = document.getElementById('audio-player');
+      player.src = '/api/stream/' + encodeURIComponent(song.id);
+      player.play().catch(() => {});
+      setTimeout(refreshState, 1000);
+    }
+    function render() {
+      document.getElementById('conn-dot').className = 'dot' + (state.connected ? ' ok' : '');
+      document.getElementById('connect-panel').style.display = state.connected ? 'none' : 'flex';
+      document.getElementById('songs-table').style.display = state.connected ? 'table' : 'none';
+      if (!state.connected) {
+        document.getElementById('srv-url').value = state.server_url || 'http://localhost:4533';
+        document.getElementById('srv-user').value = state.username || '';
+      }
+      document.getElementById('active-lib-pill').textContent = state.connected
+        ? `${state.selected_libraries.length} of ${state.libraries.length} Libraries`
+        : 'Not Connected';
+
+      const libBox = document.getElementById('lib-list');
+      libBox.innerHTML = '';
+      state.libraries.forEach(lib => {
+        const on = state.selected_libraries.length === 0 || state.selected_libraries.includes(lib.id);
+        const row = document.createElement('div');
+        row.className = 'lib-row';
+        row.onclick = () => toggleLib(lib.id);
+        row.innerHTML = `<span><span class="chk ${on ? 'on' : ''}">${on ? '✓' : ''}</span>${lib.name}</span>`;
+        libBox.appendChild(row);
+      });
+      document.getElementById('autodl-btn').textContent = (state.auto_download ? '✓ ' : '') + 'Auto-Download on Stream';
+      document.getElementById('rate-summary').textContent = `Stream: ${state.stream_format || 'RAW'} (${state.stream_bitrate || 0}k) · DL: ${state.download_format || 'RAW'}`;
+      const tbody = document.getElementById('track-tbody');
+      tbody.innerHTML = '';
+      state.songs
+        .filter(s => state.filter === 'all' || (state.filter === 'starred' && s.starred) || (state.filter === 'local' && s.is_downloaded))
+        .forEach((s, i) => {
+          const tr = document.createElement('tr');
+          tr.onclick = () => playSong(s);
+          tr.innerHTML = `
+            <td>${i + 1}</td>
+            <td style="color:#fa2d48">${s.starred ? '♥' : '♡'}</td>
+            <td style="font-weight:500">${s.title}</td>
+            <td style="color:var(--text-secondary)">${s.artist}</td>
+            <td style="color:var(--text-secondary)">${s.album}</td>
+            <td><span class="badge">${s.quality}</span></td>
+            <td>${s.is_downloaded ? '<span class="badge local">LOCAL ↓</span>' : '<span class="badge">STREAM</span>'}</td>
+            <td style="color:var(--text-secondary)">${s.duration}</td>`;
+          tbody.appendChild(tr);
+        });
+    }
+    refreshState();
+  </script>
+</body>
+</html>

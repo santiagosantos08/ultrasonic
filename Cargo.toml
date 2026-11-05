@@ -1,0 +1,48 @@
+[package]
+name = "ultrasonic"
+version = "0.1.0"
+edition = "2021"
+description = "Modern Apple Music-inspired Navidrome & OpenSubsonic player built with Rust and Slint for Desktop, Mobile, and WebUI"
+license = "MIT"
+
+[lib]
+name = "ultrasonic_lib"
+crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "ultrasonic"
+path = "src/main.rs"
+
+[dependencies]
+slint = "1.9"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+md-5 = "0.10"
+urlencoding = "2.1"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ureq = "2.10"
+rodio = { version = "0.19", default-features = false, features = ["symphonia-all"] }
+directories = "5.0"
+tiny_http = "0.12"
+
+[target.'cfg(target_os = "android")'.dependencies]
+slint = { version = "1.9", features = ["backend-android-activity-06"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    "Window",
+    "Document",
+    "HtmlAudioElement",
+    "Storage",
+    "console",
+    "Location",
+] }
+getrandom = { version = "0.2", features = ["js"] }
+
+[build-dependencies]
+slint-build = "1.9"
