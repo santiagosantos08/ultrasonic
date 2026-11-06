@@ -1,0 +1,613 @@
+import { Theme, Icons, Hairline, VectorIcon } from "theme.slint";
+import { AlbumItem, SongItem } from "models.slint";
+
+export component StyledTextInput inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder: "";
+    in property <InputType> input-type: InputType.text;
+    callback accepted(string);
+
+    height: 34px;
+    border-radius: 6px;
+    background: Theme.bg-input;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.accent : Theme.border-subtle;
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+
+        Rectangle {
+            horizontal-stretch: 1;
+            clip: true;
+
+            if root.text == "" : Text {
+                width: 100%;
+                height: 100%;
+                text: root.placeholder;
+                color: Theme.text-muted;
+                font-size: 13px;
+                vertical-alignment: center;
+            }
+
+            input := TextInput {
+                width: 100%;
+                height: 100%;
+                text <=> root.text;
+                input-type: root.input-type;
+                color: Theme.text-primary;
+                font-size: 13px;
+                vertical-alignment: center;
+                single-line: true;
+                accepted => { root.accepted(root.text); }
+            }
+        }
+    }
+}
+
+export component TrackSlider inherits Rectangle {
+    in-out property <float> value: 0.0; // 0.0 .. 1.0
+    in property <color> fill-color: Theme.accent;
+    callback changed(float);
+
+    height: 20px;
+    background: transparent;
+
+    // Background track
+    Rectangle {
+        y: (parent.height - self.height) / 2;
+        width: 100%;
+        height: touch.has-hover || touch.pressed ? 6px : 4px;
+        border-radius: self.height / 2;
+        background: #2c2c32;
+        clip: true;
+
+        // Active fill bar
+        Rectangle {
+            x: 0px;
+            y: 0px;
+            width: parent.width * Math.clamp(root.value, 0.0, 1.0);
+            height: 100%;
+            border-radius: parent.border-radius;
+            background: root.fill-color;
+        }
+    }
+
+    // Thumb indicator on hover
+    if touch.has-hover || touch.pressed : Rectangle {
+        x: (parent.width * Math.clamp(root.value, 0.0, 1.0)) - 6px;
+        y: (parent.height - 12px) / 2;
+        width: 12px;
+        height: 12px;
+        border-radius: 6px;
+        background: #ffffff;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(ev) => {
+            if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.down) {
+                root.value = Math.clamp(self.mouse-x / root.width, 0.0, 1.0);
+                root.changed(root.value);
+            }
+        }
+        moved => {
+            if (self.pressed) {
+                root.value = Math.clamp(self.mouse-x / root.width, 0.0, 1.0);
+                root.changed(root.value);
+            }
+        }
+    }
+}
+
+export component PillButton inherits Rectangle {
+    in property <string> label;
+    in property <string> icon-path: "";
+    in property <bool> primary: false;
+    in property <bool> active: false;
+    callback clicked();
+
+    height: 28px;
+    horizontal-stretch: 0;
+    min-width: content-layout.preferred-width;
+    border-radius: 6px;
+    background: primary ? (touch.has-hover ? Theme.accent-hover : Theme.accent)
+              : active ? Theme.accent-soft
+              : (touch.has-hover ? Theme.bg-hover : Theme.bg-elevated);
+    border-width: primary ? 0px : 1px;
+    border-color: active ? Theme.accent : Theme.border-subtle;
+
+    content-layout := HorizontalLayout {
+        padding-left: 11px;
+        padding-right: 11px;
+        spacing: 6px;
+        alignment: center;
+
+        if root.icon-path != "" : VerticalLayout {
+            alignment: center;
+            VectorIcon {
+                commands: root.icon-path;
+                icon-size: 13px;
+                icon-color: primary ? #ffffff : (active ? Theme.accent : Theme.text-primary);
+            }
+        }
+
+        if root.label != "" : Text {
+            text: root.label;
+            color: primary ? #ffffff : (active ? Theme.accent : Theme.text-primary);
+            font-size: 12px;
+            font-weight: primary || active ? 600 : 500;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component IconButton inherits Rectangle {
+    in property <string> icon-path;
+    in property <bool> primary: false;
+    in property <bool> active: false;
+    in property <length> btn-size: 30px;
+    in property <length> icon-size: 14px;
+    callback clicked();
+
+    width: root.btn-size;
+    height: root.btn-size;
+    border-radius: primary ? root.btn-size / 2 : 6px;
+    background: primary ? (touch.has-hover ? Theme.accent-hover : Theme.accent)
+              : active ? Theme.accent-soft
+              : (touch.has-hover ? Theme.bg-hover : transparent);
+
+    VectorIcon {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        commands: root.icon-path;
+        icon-size: root.icon-size;
+        icon-color: primary ? #ffffff : (active ? Theme.accent : Theme.text-primary);
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component SidebarNavRow inherits Rectangle {
+    in property <string> icon-path;
+    in property <string> label;
+    in property <string> badge: "";
+    in property <bool> selected: false;
+    callback clicked();
+
+    height: 32px;
+    border-radius: 6px;
+    background: selected ? Theme.accent : (touch.has-hover ? Theme.bg-hover : transparent);
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 10px;
+
+        VerticalLayout {
+            alignment: center;
+            VectorIcon {
+                commands: root.icon-path;
+                icon-size: 15px;
+                icon-color: selected ? #ffffff : Theme.accent;
+            }
+        }
+
+        Text {
+            text: root.label;
+            color: selected ? #ffffff : Theme.text-primary;
+            font-size: 13px;
+            font-weight: selected ? 600 : 400;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+
+        if root.badge != "" : Text {
+            text: root.badge;
+            color: selected ? #ffffffcc : Theme.text-muted;
+            font-size: 11px;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component AlbumTile inherits Rectangle {
+    in property <AlbumItem> album;
+    callback open-album(string);
+    callback play-album(string);
+
+    width: 156px;
+    height: 204px;
+    background: transparent;
+
+    VerticalLayout {
+        spacing: 7px;
+
+        Rectangle {
+            width: 156px;
+            height: 156px;
+            border-radius: 6px;
+            background: Theme.bg-elevated;
+            border-width: 1px;
+            border-color: Theme.border-subtle;
+            clip: true;
+
+            if root.album.has_cover : Image {
+                width: 100%;
+                height: 100%;
+                source: root.album.cover;
+                image-fit: cover;
+            }
+
+            if !root.album.has_cover : VectorIcon {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                commands: Icons.album;
+                icon-size: 40px;
+                icon-color: Theme.text-muted;
+            }
+
+            art-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.open-album(root.album.id); }
+            }
+
+            if art-touch.has-hover : Rectangle {
+                x: 114px;
+                y: 114px;
+                width: 32px;
+                height: 32px;
+                border-radius: 16px;
+                background: Theme.accent;
+
+                VectorIcon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    commands: Icons.play;
+                    icon-size: 15px;
+                    icon-color: #ffffff;
+                }
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.play-album(root.album.id); }
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: 2px;
+            Text {
+                text: root.album.title;
+                color: Theme.text-primary;
+                font-size: 12px;
+                font-weight: 600;
+                overflow: elide;
+            }
+            HorizontalLayout {
+                spacing: 4px;
+                Text {
+                    text: root.album.artist;
+                    color: Theme.text-secondary;
+                    font-size: 11px;
+                    overflow: elide;
+                    horizontal-stretch: 1;
+                }
+                if root.album.year != "" : Text {
+                    text: root.album.year;
+                    color: Theme.text-muted;
+                    font-size: 11px;
+                }
+            }
+        }
+    }
+}
+
+export component TrackTableHeader inherits Rectangle {
+    in property <bool> show-album-col: true;
+    in property <bool> compact: false;
+
+    height: 30px;
+    background: Theme.bg-canvas;
+
+    VerticalLayout {
+        HorizontalLayout {
+            vertical-stretch: 1;
+            padding-left: 14px;
+            padding-right: 14px;
+            spacing: 10px;
+
+            Text {
+                width: 32px;
+                text: "#";
+                color: Theme.text-muted;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+                horizontal-alignment: right;
+            }
+            Rectangle { width: 24px; }
+            Text {
+                horizontal-stretch: 3;
+                text: "TITLE";
+                color: Theme.text-muted;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            if !root.compact : Text {
+                horizontal-stretch: 2;
+                text: "ARTIST";
+                color: Theme.text-muted;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            if root.show-album-col && !root.compact : Text {
+                horizontal-stretch: 2;
+                text: "ALBUM";
+                color: Theme.text-muted;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            if !root.compact : Text {
+                width: 96px;
+                text: "FORMAT";
+                color: Theme.text-muted;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+            }
+            Text {
+                width: 52px;
+                text: "TIME";
+                color: Theme.text-muted;
+                font-size: 11px;
+                font-weight: 600;
+                vertical-alignment: center;
+                horizontal-alignment: right;
+            }
+            Rectangle { width: 76px; }
+        }
+        Hairline {}
+    }
+}
+
+export component TrackRow inherits Rectangle {
+    in property <SongItem> song;
+    in property <int> row-index: 0;
+    in property <bool> show-album-col: true;
+    in property <bool> compact: false;
+    in property <bool> allow-remove: false;
+
+    callback play-song(string);
+    callback queue-song(string);
+    callback toggle-star(string, bool);
+    callback download-song(string);
+    callback open-artist(string);
+    callback open-album(string);
+    callback remove-from-playlist(int);
+
+    height: 38px;
+    background: root.song.is_playing ? Theme.bg-selected
+              : row-touch.has-hover ? Theme.bg-hover
+              : (Math.mod(root.row-index, 2) == 1 ? Theme.bg-row-alt : transparent);
+
+    row-touch := TouchArea {
+        double-clicked => { root.play-song(root.song.id); }
+    }
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 10px;
+
+        // Column 1: Track # or Play icon
+        Rectangle {
+            width: 32px;
+            if !row-touch.has-hover && !root.song.is_playing : Text {
+                width: 100%;
+                height: 100%;
+                text: root.song.track_num;
+                color: Theme.text-muted;
+                font-size: 12px;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+            }
+            if row-touch.has-hover || root.song.is_playing : VectorIcon {
+                x: parent.width - self.width;
+                y: (parent.height - self.height) / 2;
+                commands: Icons.play;
+                icon-size: 14px;
+                icon-color: Theme.accent;
+            }
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.play-song(root.song.id); }
+            }
+        }
+
+        // Column 2: Favorite heart
+        Rectangle {
+            width: 24px;
+            VectorIcon {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                commands: root.song.starred ? Icons.heart-fill : Icons.heart-line;
+                icon-size: 14px;
+                icon-color: root.song.starred ? Theme.accent : Theme.text-muted;
+            }
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.toggle-star(root.song.id, !root.song.starred); }
+            }
+        }
+
+        // Column 3: Track Title + Downloaded badge
+        VerticalLayout {
+            horizontal-stretch: 3;
+            alignment: center;
+            HorizontalLayout {
+                spacing: 6px;
+                Text {
+                    text: root.song.title;
+                    color: root.song.is_playing ? Theme.accent : Theme.text-primary;
+                    font-size: 13px;
+                    font-weight: root.song.is_playing ? 600 : 400;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+                if root.song.is_downloaded : VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 44px;
+                        height: 16px;
+                        border-radius: 3px;
+                        background: #30d1581f;
+                        border-width: 1px;
+                        border-color: #30d15844;
+                        Text {
+                            text: "LOCAL";
+                            color: Theme.green-badge;
+                            font-size: 9px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+            if root.compact : Text {
+                text: root.song.artist + " · " + root.song.album;
+                color: Theme.text-secondary;
+                font-size: 11px;
+                overflow: elide;
+            }
+        }
+
+        // Column 4: Artist
+        if !root.compact : Rectangle {
+            horizontal-stretch: 2;
+            Text {
+                width: 100%;
+                height: 100%;
+                text: root.song.artist;
+                color: artist-touch.has-hover ? Theme.text-primary : Theme.text-secondary;
+                font-size: 12px;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+            artist-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    if (root.song.artist_id != "") {
+                        root.open-artist(root.song.artist_id);
+                    }
+                }
+            }
+        }
+
+        // Column 5: Album
+        if root.show-album-col && !root.compact : Rectangle {
+            horizontal-stretch: 2;
+            Text {
+                width: 100%;
+                height: 100%;
+                text: root.song.album;
+                color: album-touch.has-hover ? Theme.text-primary : Theme.text-secondary;
+                font-size: 12px;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+            album-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    if (root.song.album_id != "") {
+                        root.open-album(root.song.album_id);
+                    }
+                }
+            }
+        }
+
+        // Column 6: OpenSubsonic Format / Quality Badge
+        if !root.compact : VerticalLayout {
+            width: 96px;
+            alignment: center;
+            Rectangle {
+                height: 20px;
+                width: 92px;
+                border-radius: 4px;
+                background: Theme.bg-elevated;
+                border-width: 1px;
+                border-color: Theme.border-subtle;
+                Text {
+                    text: root.song.quality_badge;
+                    color: Theme.text-secondary;
+                    font-size: 10px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+
+        // Column 7: Duration
+        Text {
+            width: 52px;
+            text: root.song.duration_text;
+            color: Theme.text-secondary;
+            font-size: 12px;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+        }
+
+        // Column 8: Row Actions (Queue +, Download, Remove)
+        VerticalLayout {
+            width: 76px;
+            alignment: center;
+            HorizontalLayout {
+                spacing: 4px;
+                alignment: end;
+
+                IconButton {
+                    btn-size: 24px;
+                    icon-size: 13px;
+                    icon-path: Icons.plus;
+                    clicked => { root.queue-song(root.song.id); }
+                }
+
+                IconButton {
+                    btn-size: 24px;
+                    icon-size: 13px;
+                    icon-path: root.song.is_downloaded ? Icons.check : Icons.download;
+                    active: root.song.is_downloaded;
+                    clicked => { root.download-song(root.song.id); }
+                }
+
+                if root.allow-remove : IconButton {
+                    btn-size: 24px;
+                    icon-size: 12px;
+                    icon-path: Icons.close;
+                    clicked => { root.remove-from-playlist(root.row-index); }
+                }
+            }
+        }
+    }
+}

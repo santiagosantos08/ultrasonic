@@ -20,7 +20,8 @@
               - System red/pink (`#FA2D48`) accent & hairline `1px` dividers (`#242428`)
               - High-density tabular song lists (`TrackTableHeader` + `TrackRow`: Track #, Favorite Heart, Title, Local badge, Artist, Album, OpenSubsonic Quality badge, Duration, Queue & Download actions)
               - Clean square artwork grid ONLY for Albums (`AlbumTile`) — zero bloated card containers or stat boxes
-              - Master-detail split views for Artists, Albums, Genres, and Playlists
+              - Master-detail split views on Desktop for Artists, Albums, and Genres
+              - Dedicated mobile navigation for Artists and Genres (zero awkward sidebars on mobile; full-width touch-friendly list rows with avatar, title, count & chevron, transitioning seamlessly into full-width detail view with an Apple Music-style '‹ Artists' / '‹ Genres' back button)
               - Adaptive Desktop (Sidebar + Bottom Transport Bar) & Mobile (Bottom Tab Bar + Mini Player) layouts
               - Synchronized Lyrics side drawer (`lyrics` mode) & Up Next Queue drawer (`queue` mode)
               - Refined Google Material Symbols (Rounded style) vector icon system across Slint Desktop/Mobile UI and WebUI (`ui/app.slint`, `web/index.html`): `play_arrow`, `pause`, `skip_previous`, `skip_next`, `shuffle`, `repeat`, `favorite`/`favorite_border`, `download`, `check`, `search`, `music_note`, `album`, `person`, `playlist_play`, `queue_music`, `play_circle`, `grid_view`, `settings`, `volume_up`, `add`, `close`, `star`, and lyrics speech symbol.
@@ -111,3 +112,23 @@
               - Audio stream bytes, synchronized lyrics, and scrobble notifications fetched concurrently on background worker threads
               - Generational playback tokens (`play_generation`) prevent race conditions when rapidly changing tracks
               - Scrobble at 50% playback mark executes asynchronously in background to avoid any audio or UI progress hitching
+
+================================================================================
+6. MODULAR MULTI-FILE CODEBASE ARCHITECTURE
+================================================================================
+[IMPLEMENTED] Slint UI Decomposition (`ui/`):
+              - `ui/models.slint`: All Slint exported data structs (`LibraryItem`, `AlbumItem`, `ArtistItem`, `SongItem`, `PlaylistItem`, `GenreItem`, `LyricLineItem`, `ShareItem`)
+              - `ui/theme.slint`: Colors, Material Symbols Rounded icon vector definitions (`Icons`), `Hairline`, and `VectorIcon`
+              - `ui/components.slint`: Reusable widgets (`StyledTextInput`, `TrackSlider`, `PillButton`, `IconButton`, `SidebarNavRow`, `AlbumTile`, `TrackTableHeader`, `TrackRow`)
+              - `ui/skeletons.slint`: Apple Music shimmer skeleton loaders (`SkeletonBlock`, `TrackRowSkeleton`, `AlbumTileSkeleton`, `AlbumRowSkeleton`, `TrackTableSkeleton`, `AlbumDetailSkeleton`, `ArtistDetailSkeleton`)
+              - `ui/app.slint`: Modular entry point re-exporting structs and coordinating the window layout and view hierarchy
+[IMPLEMENTED] Rust Controller Modularization (`src/controller/`):
+              - `src/controller/mod.rs`: Module orchestration and `attach_callbacks_and_run` entry point
+              - `src/controller/state.rs`: `AppState`, `CURRENT_STATE` thread-local, `with_app_state`, `sync_ui_from_state`, and cover resolution
+              - `src/controller/playback.rs`: `play_track_by_id`, `advance_track`, queueing, transport callbacks, seeking, volume, shuffle & repeat
+              - `src/controller/catalog.rs`: `refresh_catalog_for_active_libraries`, view navigation, library toggles, album sorting, genre selection, and search
+              - `src/controller/detail.rs`: `open_album`, `play_album`, `open_artist`, star/favorite toggles, 1-5 star ratings, and album share link creation/deletion
+              - `src/controller/playlists.rs`: Playlist CRUD (`select_playlist`, `create_new_playlist`, `add_current_song_to_playlist`, `remove_song_from_selected_playlist`, `delete_selected_playlist`) and Navidrome server queue sync
+              - `src/controller/downloads.rs`: Offline downloading (`download_song`, `download_album`, `download_selected_playlist`, `clear_downloads`)
+              - `src/controller/settings.rs`: Stream/download formats & bitrates, auto-download on stream, server connection/disconnection, and media library scanning
+              - `src/controller/timer.rs`: 250ms periodic timer managing playback progress, synchronized lyric tracking, skeleton shimmer pulse, auto-advance, and scrobbling
