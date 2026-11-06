@@ -629,10 +629,7 @@ pub fn attach_callbacks_and_run(ui: &AppWindow, state: Rc<RefCell<AppState>>) {
         } else {
             st.is_connected = false;
             ui.set_is_connected(false);
-            ui.set_active_view("settings".into());
-            ui.set_status_message(
-                "Enter your Navidrome server URL, username, and password to connect".into(),
-            );
+            ui.set_status_message("".into());
             sync_ui_from_state(ui, &mut st);
         }
     }
@@ -1476,6 +1473,20 @@ pub fn attach_callbacks_and_run(ui: &AppWindow, state: Rc<RefCell<AppState>>) {
                     ui.set_status_message(format!("Connection failed: {}", err).into());
                 }
             }
+        });
+    }
+
+    {
+        let ui_weak = ui.as_weak();
+        let state = state.clone();
+        ui.on_disconnect_server(move || {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let mut st = state.borrow_mut();
+            st.audio.stop();
+            st.is_connected = false;
+            ui.set_is_playing(false);
+            ui.set_is_connected(false);
+            ui.set_status_message("".into());
         });
     }
 

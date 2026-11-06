@@ -1,0 +1,81 @@
+# Ultrasonic — Navidrome & OpenSubsonic Music Player (Rust + Slint)
+# Implementation Status Tracker
+
+================================================================================
+1. CORE ARCHITECTURE & PLATFORM SUPPORT
+================================================================================
+[IMPLEMENTED] Cross-platform Rust + Slint UI architecture (`src/lib.rs`, `src/main.rs`, `src/controller.rs`, `ui/app.slint`)
+[IMPLEMENTED] Desktop target (Windows / macOS / Linux via Slint winit backend + `rodio`/`symphonia-all` audio decoding in `src/audio.rs`)
+[IMPLEMENTED] Mobile target (`android_main` entry point in `src/lib.rs` + responsive Apple Music iOS-style Mobile UI with bottom tab bar and mini-player in `ui/app.slint`)
+[IMPLEMENTED] WebUI target:
+              - Built-in HTTP WebUI server (`src/webui.rs` + `web/index.html`) running on `http://localhost:4534` with multi-library selection, auto-download toggle, and live audio streaming
+              - WebAssembly (`wasm32-unknown-unknown`) target entry point `wasm_main` in `src/lib.rs` with `web_sys::HtmlAudioElement` and `localStorage` persistence
+[IMPLEMENTED] Persistent configuration & offline index (`src/config.rs`: `config.json` and `downloads_index.json` for server credentials, selected libraries, streaming/download bitrates & formats, and auto-downloaded offline tracks)
+
+================================================================================
+2. APPLE MUSIC-STYLE DESIGN & UI ("NO VIBECODED SLOP FULL OF CARDS")
+================================================================================
+[IMPLEMENTED] Apple Music macOS / iOS inspired visual language (`ui/app.slint`):
+              - Clean dark translucent-inspired sidebar (`#161618`) & crisp content canvas (`#111113`)
+              - System red/pink (`#FA2D48`) accent & hairline `1px` dividers (`#242428`)
+              - High-density tabular song lists (`TrackTableHeader` + `TrackRow`: Track #, Star `♥`, Title, Local `↓` badge, Artist, Album, OpenSubsonic Quality badge, Duration, Queue `+Q` & Download `↓` actions)
+              - Clean square artwork grid ONLY for Albums (`AlbumTile`) — zero bloated card containers or stat boxes
+              - Master-detail split views for Artists, Albums, Genres, and Playlists
+              - Adaptive Desktop (Sidebar + Bottom Transport Bar) & Mobile (Bottom Tab Bar + Mini Player) layouts
+              - Synchronized Lyrics side drawer (`lyrics` mode) & Up Next Queue drawer (`queue` mode)
+
+================================================================================
+3. NAVIDROME & OPENSUBSONIC API IMPLEMENTATION (`src/api.rs`, `src/models.rs`)
+================================================================================
+[IMPLEMENTED] Authentication:
+              - Subsonic MD5 token authentication (`t = md5(password + salt)`, `s = random salt`, `v = 1.16.1`, `c = Ultrasonic`, `f = json`)
+              - String ID handling everywhere (MD5/UUID strings, including `playQueue.current`, plus fallback numeric ID deserialization via `deserialize_string_id`)
+[IMPLEMENTED] Multi-Library Support (Navidrome Priority):
+              - `getMusicFolders` — Fetches all libraries accessible to the authenticated user
+              - Multi-library visibility selector in Sidebar, Settings, and WebUI (users with access to multiple libraries can select one, multiple, or all libraries simultaneously)
+              - Server-side multi-library filtering via repeated `musicFolderId` query parameters (`?musicFolderId=id1&musicFolderId=id2`) on all supported endpoints (`getAlbumList2`, `getArtists`, `getRandomSongs`, `getSongsByGenre`, `getStarred2`, `search3`)
+[IMPLEMENTED] System & Server Capabilities:
+              - `ping` — Connection & server version verification
+              - `getOpenSubsonicExtensions` — Query server OpenSubsonic capabilities
+              - `getScanStatus` — Navidrome extended scan status (`scanning`, `count`, `lastScan`, `folderCount`)
+              - `startScan` — Trigger library scan with Navidrome `fullScan=true|false` support
+[IMPLEMENTED] Music Browsing & Discovery:
+              - `getAlbumList2` — Browse albums by `newest`, `recent`, `frequent`, `random`, `starred`, `alphabeticalByName`, `alphabeticalByArtist` (scoped by selected `musicFolderId`s)
+              - `getAlbum` — Fetch album details and tracklist with OpenSubsonic metadata (`bitDepth`, `samplingRate`, `channelCount`, `replayGain`, `discNumber`, `bitRate`, `suffix`)
+              - `getArtists` — Fetch ID3 artists grouped by index (scoped by selected `musicFolderId`s)
+              - `getArtist` — Fetch artist details and discography
+              - `getArtistInfo2` / `getAlbumInfo2` — Biography, album notes, MusicBrainz/Last.fm links
+              - `getGenres` & `getSongsByGenre` — Genre list and genre-scoped songs (scoped by selected `musicFolderId`s)
+              - `getRandomSongs` — Random songs mix (scoped by selected `musicFolderId`s)
+              - `getStarred2` — Starred songs, albums, and artists (scoped by selected `musicFolderId`s)
+              - `getTopSongs` — Artist top tracks
+[IMPLEMENTED] Search:
+              - `search3` — Unified search across Artists, Albums, and Songs (scoped by selected `musicFolderId`s)
+[IMPLEMENTED] Playlists:
+              - `getPlaylists` — List all user & public playlists
+              - `getPlaylist` — View playlist tracks
+              - `createPlaylist` — Create new playlist
+              - `updatePlaylist` — Add tracks (`songIdToAdd`) and remove tracks (`songIndexToRemove`)
+              - `deletePlaylist` — Delete playlist
+[IMPLEMENTED] Media Retrieval, Streaming, & Downloading:
+              - `stream` — Stream audio with configurable `format` (`raw`, `flac`, `opus`, `mp3`, `aac`) and `maxBitRate` (`0`, `320`, `256`, `192`, `128`, `96`, `64`), plus `timeOffset`
+              - `download` — Navidrome enhanced download supporting Songs, Albums, and Playlists with configurable download `format` and `maxBitRate`
+              - Auto-Download on Stream toggle (`config-auto-download-streamed`) — Automatically downloads tracks to local offline storage (`OfflineIndex`) when streamed once; subsequent plays use the local file directly
+              - `getCoverArt` — Artwork fetching with local disk caching (`covers/`) and RGBA image decoding (`src/models.rs`)
+              - `getLyricsBySongId` (OpenSubsonic structured synced lyrics) & `getLyrics` (classic fallback + LRC timestamp parser)
+[IMPLEMENTED] Media Annotation, Scrobbling, & Queue Sync:
+              - `star` / `unstar` — Favorite/unfavorite songs and albums
+              - `setRating` — 1–5 star ratings on tracks
+              - `scrobble` — Navidrome-compliant `submission=false` (Now Playing) on track start and `submission=true` at >=50% playback to update Navidrome play count & last-played timestamp
+              - `getPlayQueue` / `savePlayQueue` — Server-side play queue synchronization (using string `current` ID)
+              - `getShares` / `createShare` / `deleteShare` — Navidrome share link management
+
+================================================================================
+4. INTENTIONALLY EXCLUDED / NOT IMPLEMENTED
+================================================================================
+[EXCLUDED] Internet Radio (`getInternetRadioStations`, `createInternetRadioStation`, `updateInternetRadioStation`, `deleteInternetRadioStation`) — Excluded per user request ("No radio, no podcasts, just music").
+[EXCLUDED] Podcasts (`getPodcasts`, `getNewestPodcasts`, `refreshPodcasts`, `createPodcastChannel`, `deletePodcastChannel`, `deletePodcastEpisode`, `downloadPodcastEpisode`) — Excluded per user request ("No radio, no podcasts, just music").
+[EXCLUDED] Video / HLS (`getVideos`, `getVideoInfo`, `hls`, `getCaptions`) — Excluded (music-only player; also unimplemented in Navidrome).
+[EXCLUDED] Chat (`getChatMessages`, `addChatMessage`) — Legacy Subsonic chat widget; not supported by Navidrome and not relevant to music playback.
+[EXCLUDED] Directory Tree Simulation (`getIndexes`, `getMusicDirectory`) — Navidrome docs recommend ID3 browsing (`getArtists`/`getAlbumList2`) over simulated `/Artist/Album/Song` directory endpoints.
+[EXCLUDED] Jukebox mode (`jukeboxControl`) — Server hardware audio output control; local Desktop/Mobile/WebUI playback is used instead.
