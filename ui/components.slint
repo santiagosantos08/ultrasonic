@@ -105,10 +105,11 @@ export component PillButton inherits Rectangle {
     in property <string> icon-path: "";
     in property <bool> primary: false;
     in property <bool> active: false;
+    in property <int> h-stretch: 0;
     callback clicked();
 
     height: 28px;
-    horizontal-stretch: 0;
+    horizontal-stretch: root.h-stretch;
     min-width: content-layout.preferred-width;
     border-radius: 6px;
     background: primary ? (touch.has-hover ? Theme.accent-hover : Theme.accent)

@@ -241,6 +241,16 @@ pub fn sync_ui_from_state(ui: &AppWindow, state: &mut AppState) {
     ui.set_config_webui_port(state.config.webui_port as i32);
     ui.set_volume(state.audio.volume);
 
+    ui.set_layout_override(state.config.layout_override.clone().into());
+    ui.set_nav_show_listen_now(state.config.nav_show_listen_now);
+    ui.set_nav_show_albums(state.config.nav_show_albums);
+    ui.set_nav_show_artists(state.config.nav_show_artists);
+    ui.set_nav_show_songs(state.config.nav_show_songs);
+    ui.set_nav_show_playlists(state.config.nav_show_playlists);
+    ui.set_nav_show_genres(state.config.nav_show_genres);
+    ui.set_nav_show_favorites(state.config.nav_show_favorites);
+    ui.set_nav_show_search(state.config.nav_show_search);
+
     let lib_items: Vec<LibraryItem> = state
         .libraries
         .iter()

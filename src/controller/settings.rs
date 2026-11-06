@@ -1,5 +1,5 @@
 use super::catalog::refresh_catalog_for_active_libraries;
-use super::state::{with_app_state, AppState};
+use super::state::{sync_ui_from_state, with_app_state, AppState};
 use crate::api::NavidromeClient;
 use crate::*;
 use slint::ComponentHandle;
@@ -7,6 +7,58 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn register_settings_callbacks(ui: &AppWindow, state: Rc<RefCell<AppState>>) {
+    // Set Layout Mode Override ("auto", "mobile", "desktop")
+    {
+        let ui_weak = ui.as_weak();
+        let state = state.clone();
+        ui.on_set_layout_override(move |mode| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let mut st = state.borrow_mut();
+            st.config.layout_override = mode.to_string();
+            st.config.save();
+            ui.set_layout_override(mode.clone());
+            ui.set_status_message(format!("Layout mode set to {}", mode).into());
+        });
+    }
+
+    // Toggle Nav Section Visibility
+    {
+        let ui_weak = ui.as_weak();
+        let state = state.clone();
+        ui.on_toggle_nav_section(move |section, enabled| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let mut st = state.borrow_mut();
+            match section.as_str() {
+                "listen_now" => st.config.nav_show_listen_now = enabled,
+                "albums" => st.config.nav_show_albums = enabled,
+                "artists" => st.config.nav_show_artists = enabled,
+                "songs" => st.config.nav_show_songs = enabled,
+                "playlists" => st.config.nav_show_playlists = enabled,
+                "genres" => st.config.nav_show_genres = enabled,
+                "favorites" => st.config.nav_show_favorites = enabled,
+                "search" => st.config.nav_show_search = enabled,
+                _ => {}
+            }
+            st.config.save();
+            sync_ui_from_state(&ui, &mut st);
+        });
+    }
+
+    // Clear Local Storage (Offline downloads and covers cache)
+    {
+        let ui_weak = ui.as_weak();
+        let state = state.clone();
+        ui.on_clear_local_storage(move || {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let mut st = state.borrow_mut();
+            st.offline.clear_all();
+            crate::config::AppConfig::clear_covers_cache();
+            st.cover_cache.clear();
+            ui.set_status_message("Local storage, offline downloads, and cover cache cleared".into());
+            sync_ui_from_state(&ui, &mut st);
+        });
+    }
+
     // Set Stream Format
     {
         let ui_weak = ui.as_weak();

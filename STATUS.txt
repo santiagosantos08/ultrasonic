@@ -132,3 +132,27 @@
               - `src/controller/downloads.rs`: Offline downloading (`download_song`, `download_album`, `download_selected_playlist`, `clear_downloads`)
               - `src/controller/settings.rs`: Stream/download formats & bitrates, auto-download on stream, server connection/disconnection, and media library scanning
               - `src/controller/timer.rs`: 250ms periodic timer managing playback progress, synchronized lyric tracking, skeleton shimmer pulse, auto-advance, and scrobbling
+
+================================================================================
+7. RESPONSIVE AUTOMATIC LAYOUT, EXPANDED PLAYER, & CUSTOMIZABLE NAVIGATION
+================================================================================
+[IMPLEMENTED] Automatic Aspect-Ratio Layout Switching & Layout Override:
+              - Removed manual top-bar Mobile/Desktop toggle button
+              - Intelligent automatic layout detection based on window aspect ratio (`width < 768px || width < height`)
+              - Persistent layout override setting in Settings (`auto`, `mobile`, `desktop`) saved to `config.json`
+[IMPLEMENTED] Spotify / Apple Music-Style Expanded Player & Desktop Side Panel:
+              - Mobile Mini-Player tap opens full-screen Expanded Player overlay with animated dismiss chevron
+              - Desktop bottom transport bar includes Now Playing cover click toggle, lyrics toggle, queue toggle, and expand button
+              - Spotify-like right collapsible panel on desktop with tabs for Now Playing (large artwork + track info), Synchronized Lyrics, and Up Next Queue with Maximize button
+              - Fullscreen Maximized view with large artwork, scrubber bar, large transport controls, volume slider, synchronized lyrics, and server queue management
+[IMPLEMENTED] Responsive Card-Based Settings Menu:
+              - Redesigned with container cards and responsive vertical field stacking — zero horizontal overflowing on mobile
+              - Multi-row bitrate and format selector buttons that wrap cleanly on narrow screens
+              - Local storage management: button to clear cached album covers and local offline storage (`clear-local-storage`)
+[IMPLEMENTED] Dedicated Search Tab & Streamlined Offline Filtering:
+              - Removed permanent top search strip on mobile in favor of a dedicated bottom Search tab (`search` view)
+              - Removed dedicated Offline tab from main navigation; converted to an offline/downloaded filter toggle directly inside library song views
+[IMPLEMENTED] Customizable Navigation Sections & Tabs:
+              - Every main navigation section (Listen Now, Search, Albums, Artists, Songs, Playlists, Genres, Favorites) is individually showable/hideable via Settings toggles
+              - Settings persist immediately to `config.json` (`nav_show_listen_now`, `nav_show_search`, `nav_show_albums`, `nav_show_artists`, `nav_show_songs`, `nav_show_playlists`, `nav_show_genres`, `nav_show_favorites`)
+              - Both Desktop Sidebar and Mobile Bottom Navigation bar dynamically adapt to show only user-enabled tabs

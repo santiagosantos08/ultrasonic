@@ -52,10 +52,28 @@ export component AppWindow inherits Window {
     in-out property <bool> is-loading: false;
     in-out property <bool> pulse-phase: false;
 
-    // Responsive layout properties
-    in-out property <bool> force-mobile-layout: false;
-    out property <bool> is-mobile: root.force-mobile-layout;
+    // Responsive layout properties (Aspect-ratio auto detection + Settings override)
+    in-out property <string> layout-override: "auto"; // "auto", "mobile", "desktop"
+    out property <bool> is-mobile: root.layout-override == "mobile" || (root.layout-override != "desktop" && (root.width < 768px || root.width < root.height));
     in-out property <bool> offline-mode-active: false;
+
+    // Customizable Navigation Tabs Visibility
+    in-out property <bool> nav-show-listen-now: true;
+    in-out property <bool> nav-show-albums: true;
+    in-out property <bool> nav-show-artists: true;
+    in-out property <bool> nav-show-songs: true;
+    in-out property <bool> nav-show-playlists: true;
+    in-out property <bool> nav-show-genres: true;
+    in-out property <bool> nav-show-favorites: true;
+    in-out property <bool> nav-show-search: true;
+
+    // Library downloaded-only filter
+    in-out property <bool> filter-downloaded-only: false;
+
+    // Expanded Player & Desktop Panel
+    in-out property <bool> expanded-player-open: false;
+    in-out property <bool> desktop-panel-open: false;
+    in-out property <string> expanded-player-tab: "cover"; // "cover", "lyrics", "queue"
 
     // Navigation & View state
     in-out property <string> active-view: "listen_now";
@@ -193,6 +211,9 @@ export component AppWindow inherits Window {
     callback set-download-bitrate(int);
     callback toggle-auto-download-streamed(bool);
     callback trigger-server-scan(bool);
+    callback set-layout-override(string);
+    callback toggle-nav-section(string, bool);
+    callback clear-local-storage();
 
     // =========================================================================
     // STARTUP LOGIN SCREEN (Shown whenever not connected and not in offline mode)
@@ -544,53 +565,52 @@ export component AppWindow inherits Window {
                                             vertical-alignment: center;
                                         }
                                     }
-                                    SidebarNavRow {
+                                    if root.nav-show-listen-now : SidebarNavRow {
                                         icon-path: Icons.listen-now;
                                         label: "Listen Now";
                                         selected: root.active-view == "listen_now";
                                         clicked => { root.navigate("listen_now"); }
                                     }
-                                    SidebarNavRow {
+                                    if root.nav-show-albums : SidebarNavRow {
                                         icon-path: Icons.album;
                                         label: "Albums";
                                         selected: root.active-view == "albums" || root.active-view == "album_detail";
                                         clicked => { root.navigate("albums"); }
                                     }
-                                    SidebarNavRow {
+                                    if root.nav-show-artists : SidebarNavRow {
                                         icon-path: Icons.artist;
                                         label: "Artists";
                                         selected: root.active-view == "artists";
                                         clicked => { root.navigate("artists"); }
                                     }
-                                    SidebarNavRow {
+                                    if root.nav-show-songs : SidebarNavRow {
                                         icon-path: Icons.note;
                                         label: "Songs";
                                         selected: root.active-view == "songs";
                                         clicked => { root.navigate("songs"); }
                                     }
-                                    SidebarNavRow {
+                                    if root.nav-show-genres : SidebarNavRow {
                                         icon-path: Icons.grid;
                                         label: "Genres";
                                         selected: root.active-view == "genres";
                                         clicked => { root.navigate("genres"); }
                                     }
-                                    SidebarNavRow {
+                                    if root.nav-show-favorites : SidebarNavRow {
                                         icon-path: Icons.heart-fill;
                                         label: "Favorites";
                                         selected: root.active-view == "favorites";
                                         clicked => { root.navigate("favorites"); }
                                     }
-                                    SidebarNavRow {
-                                        icon-path: Icons.download;
-                                        label: "Downloaded";
-                                        badge: root.config-auto-download-streamed ? "AUTO" : "";
-                                        selected: root.active-view == "downloads";
-                                        clicked => { root.navigate("downloads"); }
+                                    if root.nav-show-search : SidebarNavRow {
+                                        icon-path: Icons.search;
+                                        label: "Search";
+                                        selected: root.active-view == "search";
+                                        clicked => { root.navigate("search"); }
                                     }
                                 }
 
                                 // PLAYLISTS SECTION
-                                VerticalLayout {
+                                if root.nav-show-playlists : VerticalLayout {
                                     spacing: 2px;
                                     HorizontalLayout {
                                         height: 18px;
@@ -714,77 +734,8 @@ export component AppWindow inherits Window {
                                 vertical-alignment: center;
                                 overflow: elide;
                             }
-
-                            VerticalLayout {
-                                alignment: center;
-                                PillButton {
-                                    label: root.force-mobile-layout ? "Desktop Layout" : "Mobile Layout";
-                                    active: root.force-mobile-layout;
-                                    clicked => { root.force-mobile-layout = !root.force-mobile-layout; }
-                                }
-                            }
-
-                            VerticalLayout {
-                                alignment: center;
-                                PillButton {
-                                    icon-path: Icons.lyrics;
-                                    label: "Lyrics";
-                                    active: root.right-drawer == "lyrics";
-                                    clicked => {
-                                        root.right-drawer = (root.right-drawer == "lyrics") ? "none" : "lyrics";
-                                    }
-                                }
-                            }
-
-                            VerticalLayout {
-                                alignment: center;
-                                PillButton {
-                                    icon-path: Icons.queue;
-                                    label: "Up Next";
-                                    active: root.right-drawer == "queue";
-                                    clicked => {
-                                        root.right-drawer = (root.right-drawer == "queue") ? "none" : "queue";
-                                    }
-                                }
-                            }
                         }
                         Hairline {}
-                    }
-                }
-
-                // Mobile Search Strip
-                if root.is-mobile : Rectangle {
-                    height: 44px;
-                    background: Theme.bg-sidebar;
-                    HorizontalLayout {
-                        padding-left: 12px;
-                        padding-right: 12px;
-                        spacing: 8px;
-                        VerticalLayout {
-                            horizontal-stretch: 1;
-                            alignment: center;
-                            StyledTextInput {
-                                height: 30px;
-                                text <=> root.search-query;
-                                placeholder: "Search Navidrome library...";
-                                accepted(val) => {
-                                    root.active-view = "search";
-                                    root.run-search(val);
-                                }
-                            }
-                        }
-                        VerticalLayout {
-                            alignment: center;
-                            PillButton {
-                                icon-path: Icons.search;
-                                label: "Search";
-                                primary: true;
-                                clicked => {
-                                    root.active-view = "search";
-                                    root.run-search(root.search-query);
-                                }
-                            }
-                        }
                     }
                 }
 
@@ -1625,10 +1576,27 @@ export component AppWindow inherits Window {
                 }
 
                 // =============================================================
-                // VIEW 5: SONGS / FAVORITES / SEARCH
+                // VIEW 5: SONGS / FAVORITES
                 // =============================================================
-                if root.active-view == "songs" || root.active-view == "favorites" || root.active-view == "search" : VerticalLayout {
+                if root.active-view == "songs" || root.active-view == "favorites" : VerticalLayout {
                     vertical-stretch: 1;
+
+                    // Filter strip: Downloaded Only / All Music
+                    HorizontalLayout {
+                        height: 38px;
+                        padding-left: 14px;
+                        padding-right: 14px;
+                        alignment: start;
+                        VerticalLayout {
+                            alignment: center;
+                            PillButton {
+                                icon-path: Icons.download;
+                                label: root.filter-downloaded-only ? "Downloaded Only (Active)" : "Filter: Downloaded Only";
+                                active: root.filter-downloaded-only;
+                                clicked => { root.filter-downloaded-only = !root.filter-downloaded-only; }
+                            }
+                        }
+                    }
 
                     if root.is-loading : TrackTableSkeleton {
                         pulse: root.pulse-phase;
@@ -1641,7 +1609,7 @@ export component AppWindow inherits Window {
 
                     if !root.is-loading : ScrollView {
                         vertical-stretch: 1;
-                        VerticalLayout {
+                        if !root.filter-downloaded-only : VerticalLayout {
                             alignment: start;
                             for s[idx] in root.songs : TrackRow {
                                 song: s;
@@ -1653,6 +1621,139 @@ export component AppWindow inherits Window {
                                 download-song(id) => { root.download-song(id); }
                                 open-artist(aid) => { root.open-artist(aid); }
                                 open-album(alid) => { root.open-album(alid); }
+                            }
+                        }
+                        if root.filter-downloaded-only : VerticalLayout {
+                            alignment: start;
+                            for s[idx] in root.downloaded-songs : TrackRow {
+                                song: s;
+                                row-index: idx;
+                                compact: root.is-mobile;
+                                play-song(id) => { root.play-song(id); }
+                                queue-song(id) => { root.queue-song(id); }
+                                toggle-star(id, st) => { root.toggle-star(id, st); }
+                                download-song(id) => { root.download-song(id); }
+                                open-artist(aid) => { root.open-artist(aid); }
+                                open-album(alid) => { root.open-album(alid); }
+                            }
+                        }
+                    }
+                }
+
+                // =============================================================
+                // VIEW 5B: DEDICATED SEARCH VIEW
+                // =============================================================
+                if root.active-view == "search" : VerticalLayout {
+                    vertical-stretch: 1;
+                    padding-left: root.is-mobile ? 12px : 20px;
+                    padding-right: root.is-mobile ? 12px : 20px;
+                    padding-top: 14px;
+                    spacing: 12px;
+
+                    // Prominent Search Bar
+                    HorizontalLayout {
+                        spacing: 8px;
+                        StyledTextInput {
+                            horizontal-stretch: 1;
+                            text <=> root.search-query;
+                            placeholder: "Search artists, albums, songs...";
+                            accepted(val) => { root.run-search(val); }
+                        }
+                        PillButton {
+                            icon-path: Icons.search;
+                            label: "Search";
+                            primary: true;
+                            clicked => { root.run-search(root.search-query); }
+                        }
+                        if root.search-query != "" : PillButton {
+                            icon-path: Icons.close;
+                            label: "Clear";
+                            clicked => { root.search-query = ""; }
+                        }
+                    }
+
+                    if root.is-loading : TrackTableSkeleton {
+                        pulse: root.pulse-phase;
+                        compact: root.is-mobile;
+                    }
+
+                    if !root.is-loading : ScrollView {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            spacing: 18px;
+                            alignment: start;
+
+                            // Matching Albums
+                            if root.albums.length > 0 && root.search-query != "" : VerticalLayout {
+                                spacing: 10px;
+                                Text {
+                                    text: "Albums (" + root.albums.length + ")";
+                                    color: Theme.text-primary;
+                                    font-size: 15px;
+                                    font-weight: 700;
+                                }
+                                ScrollView {
+                                    height: 215px;
+                                    HorizontalLayout {
+                                        spacing: 14px;
+                                        alignment: start;
+                                        for alb in root.albums : AlbumTile {
+                                            album: alb;
+                                            open-album(aid) => { root.open-album(aid); }
+                                            play-album(aid) => { root.play-album(aid); }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Matching Songs
+                            if root.songs.length > 0 && root.search-query != "" : VerticalLayout {
+                                spacing: 8px;
+                                Text {
+                                    text: "Songs (" + root.songs.length + ")";
+                                    color: Theme.text-primary;
+                                    font-size: 15px;
+                                    font-weight: 700;
+                                }
+                                TrackTableHeader { compact: root.is-mobile; }
+                                for s[idx] in root.songs : TrackRow {
+                                    song: s;
+                                    row-index: idx;
+                                    compact: root.is-mobile;
+                                    play-song(id) => { root.play-song(id); }
+                                    queue-song(id) => { root.queue-song(id); }
+                                    toggle-star(id, st) => { root.toggle-star(id, st); }
+                                    download-song(id) => { root.download-song(id); }
+                                    open-artist(aid) => { root.open-artist(aid); }
+                                    open-album(alid) => { root.open-album(alid); }
+                                }
+                            }
+
+                            // Empty / Placeholder state
+                            if root.songs.length == 0 && root.albums.length == 0 : VerticalLayout {
+                                padding-top: 40px;
+                                spacing: 12px;
+                                alignment: center;
+                                HorizontalLayout {
+                                    alignment: center;
+                                    VectorIcon {
+                                        commands: Icons.search;
+                                        icon-size: 44px;
+                                        icon-color: Theme.text-muted;
+                                    }
+                                }
+                                Text {
+                                    text: root.search-query == "" ? "Search Navidrome Library" : "No results found for '" + root.search-query + "'";
+                                    color: Theme.text-secondary;
+                                    font-size: 14px;
+                                    horizontal-alignment: center;
+                                }
+                                Text {
+                                    text: root.search-query == "" ? "Enter an artist, album title, or song name above to search." : "Try searching with a different term.";
+                                    color: Theme.text-muted;
+                                    font-size: 12px;
+                                    horizontal-alignment: center;
+                                }
                             }
                         }
                     }
@@ -2115,200 +2216,430 @@ export component AppWindow inherits Window {
                 }
 
                 // =============================================================
-                // VIEW 9: SETTINGS
+                // VIEW 9: SETTINGS (Responsive Card-Based Layout)
                 // =============================================================
                 if root.active-view == "settings" : ScrollView {
                     vertical-stretch: 1;
                     VerticalLayout {
-                        padding: 24px;
-                        spacing: 22px;
+                        padding: root.is-mobile ? 14px : 24px;
+                        spacing: 18px;
                         alignment: start;
 
-                        // Section 1: Navidrome Server Connection
-                        VerticalLayout {
-                            spacing: 10px;
-                            Text {
-                                text: "NAVIDROME / OPENSUBSONIC SERVER";
-                                color: Theme.text-muted;
-                                font-size: 11px;
-                                font-weight: 700;
-                            }
-                            HorizontalLayout {
-                                spacing: 12px;
-                                Text {
-                                    width: 140px;
-                                    text: "Server URL";
-                                    color: Theme.text-secondary;
-                                    font-size: 13px;
-                                    vertical-alignment: center;
-                                }
-                                StyledTextInput {
-                                    horizontal-stretch: 1;
-                                    text <=> root.config-server-url;
-                                    placeholder: "http://localhost:4533";
-                                }
-                            }
-                            HorizontalLayout {
-                                spacing: 12px;
-                                Text {
-                                    width: 140px;
-                                    text: "Username";
-                                    color: Theme.text-secondary;
-                                    font-size: 13px;
-                                    vertical-alignment: center;
-                                }
-                                StyledTextInput {
-                                    horizontal-stretch: 1;
-                                    text <=> root.config-username;
-                                    placeholder: "Username";
-                                }
-                            }
-                            HorizontalLayout {
-                                spacing: 12px;
-                                Text {
-                                    width: 140px;
-                                    text: "Password";
-                                    color: Theme.text-secondary;
-                                    font-size: 13px;
-                                    vertical-alignment: center;
-                                }
-                                StyledTextInput {
-                                    horizontal-stretch: 1;
-                                    input-type: InputType.password;
-                                    text <=> root.config-password;
-                                    placeholder: "Password";
-                                }
-                            }
-                            HorizontalLayout {
-                                spacing: 10px;
-                                alignment: start;
-                                PillButton {
-                                    label: "Save & Reconnect";
-                                    primary: true;
-                                    clicked => { root.save-and-connect(); }
-                                }
-                                PillButton {
-                                    label: "Quick Scan";
-                                    clicked => { root.trigger-server-scan(false); }
-                                }
-                                PillButton {
-                                    label: "Full Rescan";
-                                    clicked => { root.trigger-server-scan(true); }
-                                }
-                                PillButton {
-                                    label: "Sign Out";
-                                    clicked => {
-                                        root.offline-mode-active = false;
-                                        root.disconnect-server();
-                                    }
-                                }
-                            }
-                            Text {
-                                text: "Server Status: " + root.server-version-badge + " · Indexed tracks: " + root.scan-count + " · Last scan: " + root.scan-last-time;
-                                color: Theme.text-muted;
-                                font-size: 11px;
-                            }
-                        }
+                        // Section 1: Server Connection
+                        Rectangle {
+                            border-radius: 8px;
+                            background: Theme.bg-sidebar;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
 
-                        Hairline {}
+                            VerticalLayout {
+                                padding: 16px;
+                                spacing: 12px;
 
-                        // Section 2: Multi-Library Selection
-                        VerticalLayout {
-                            spacing: 10px;
-                            HorizontalLayout {
-                                height: 28px;
                                 Text {
-                                    text: "VISIBLE LIBRARIES (MULTI-LIBRARY SELECTION)";
+                                    text: "NAVIDROME / OPENSUBSONIC SERVER";
                                     color: Theme.text-muted;
                                     font-size: 11px;
                                     font-weight: 700;
-                                    horizontal-stretch: 1;
-                                    vertical-alignment: center;
                                 }
+
                                 VerticalLayout {
-                                    alignment: center;
-                                    PillButton {
-                                        label: "Select All Libraries";
-                                        clicked => { root.select-all-libraries(); }
+                                    spacing: 4px;
+                                    Text {
+                                        text: "Server URL";
+                                        color: Theme.text-secondary;
+                                        font-size: 12px;
+                                    }
+                                    StyledTextInput {
+                                        text <=> root.config-server-url;
+                                        placeholder: "http://localhost:4533";
                                     }
                                 }
-                            }
-                            Text {
-                                text: "Select one or multiple Navidrome libraries (`musicFolderId`) to include across browsing and search.";
-                                color: Theme.text-secondary;
-                                font-size: 12px;
-                            }
-                            HorizontalLayout {
-                                spacing: 8px;
-                                alignment: start;
-                                for lib in root.libraries : PillButton {
-                                    icon-path: lib.selected ? Icons.check : "";
-                                    label: lib.name + " (#" + lib.id + ")";
-                                    active: lib.selected;
-                                    clicked => { root.toggle-library(lib.id); }
+
+                                VerticalLayout {
+                                    spacing: 4px;
+                                    Text {
+                                        text: "Username";
+                                        color: Theme.text-secondary;
+                                        font-size: 12px;
+                                    }
+                                    StyledTextInput {
+                                        text <=> root.config-username;
+                                        placeholder: "Username";
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    spacing: 4px;
+                                    Text {
+                                        text: "Password";
+                                        color: Theme.text-secondary;
+                                        font-size: 12px;
+                                    }
+                                    StyledTextInput {
+                                        input-type: InputType.password;
+                                        text <=> root.config-password;
+                                        placeholder: "Password";
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    PillButton {
+                                        h-stretch: 1;
+                                        label: "Save & Reconnect";
+                                        primary: true;
+                                        clicked => { root.save-and-connect(); }
+                                    }
+                                    PillButton {
+                                        h-stretch: 1;
+                                        label: "Quick Scan";
+                                        clicked => { root.trigger-server-scan(false); }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    PillButton {
+                                        h-stretch: 1;
+                                        label: "Full Rescan";
+                                        clicked => { root.trigger-server-scan(true); }
+                                    }
+                                    PillButton {
+                                        h-stretch: 1;
+                                        label: "Sign Out";
+                                        clicked => {
+                                            root.offline-mode-active = false;
+                                            root.disconnect-server();
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    text: "Server Status: " + root.server-version-badge + " · Tracks: " + root.scan-count + " · Last scan: " + root.scan-last-time;
+                                    color: Theme.text-muted;
+                                    font-size: 11px;
+                                    wrap: word-wrap;
                                 }
                             }
                         }
 
-                        Hairline {}
+                        // Section 2: Display & Layout Mode
+                        Rectangle {
+                            border-radius: 8px;
+                            background: Theme.bg-sidebar;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
 
-                        // Section 3: Configurable Streaming Rate & Format
-                        VerticalLayout {
-                            spacing: 10px;
-                            Text {
-                                text: "STREAMING QUALITY & TRANSCODING (`stream` endpoint)";
-                                color: Theme.text-muted;
-                                font-size: 11px;
-                                font-weight: 700;
-                            }
-                            HorizontalLayout {
-                                height: 30px;
-                                spacing: 8px;
-                                alignment: start;
+                            VerticalLayout {
+                                padding: 16px;
+                                spacing: 10px;
+
                                 Text {
-                                    width: 140px;
+                                    text: "DISPLAY & LAYOUT MODE";
+                                    color: Theme.text-muted;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+
+                                Text {
+                                    text: "Ultrasonic automatically switches between Desktop and Mobile layout depending on screen aspect ratio. You can also force a specific mode below.";
+                                    color: Theme.text-secondary;
+                                    font-size: 12px;
+                                    wrap: word-wrap;
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    PillButton {
+                                        h-stretch: 1;
+                                        label: "Auto (Aspect Ratio)";
+                                        active: root.layout-override == "auto";
+                                        clicked => { root.set-layout-override("auto"); }
+                                    }
+                                    PillButton {
+                                        h-stretch: 1;
+                                        label: "Always Mobile";
+                                        active: root.layout-override == "mobile";
+                                        clicked => { root.set-layout-override("mobile"); }
+                                    }
+                                    PillButton {
+                                        h-stretch: 1;
+                                        label: "Always Desktop";
+                                        active: root.layout-override == "desktop";
+                                        clicked => { root.set-layout-override("desktop"); }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Section 3: Customizable Navigation Tabs / Sections
+                        Rectangle {
+                            border-radius: 8px;
+                            background: Theme.bg-sidebar;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
+
+                            VerticalLayout {
+                                padding: 16px;
+                                spacing: 10px;
+
+                                Text {
+                                    text: "CUSTOMIZE NAVIGATION SECTIONS";
+                                    color: Theme.text-muted;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+
+                                Text {
+                                    text: "Toggle which library sections and tabs appear in the navigation bar and sidebar.";
+                                    color: Theme.text-secondary;
+                                    font-size: 12px;
+                                    wrap: word-wrap;
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    PillButton {
+                                        h-stretch: 1;
+                                        icon-path: root.nav-show-listen-now ? Icons.check : "";
+                                        label: "Listen Now";
+                                        active: root.nav-show-listen-now;
+                                        clicked => { root.toggle-nav-section("listen_now", !root.nav-show-listen-now); }
+                                    }
+                                    PillButton {
+                                        h-stretch: 1;
+                                        icon-path: root.nav-show-search ? Icons.check : "";
+                                        label: "Search";
+                                        active: root.nav-show-search;
+                                        clicked => { root.toggle-nav-section("search", !root.nav-show-search); }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    PillButton {
+                                        h-stretch: 1;
+                                        icon-path: root.nav-show-albums ? Icons.check : "";
+                                        label: "Albums";
+                                        active: root.nav-show-albums;
+                                        clicked => { root.toggle-nav-section("albums", !root.nav-show-albums); }
+                                    }
+                                    PillButton {
+                                        h-stretch: 1;
+                                        icon-path: root.nav-show-artists ? Icons.check : "";
+                                        label: "Artists";
+                                        active: root.nav-show-artists;
+                                        clicked => { root.toggle-nav-section("artists", !root.nav-show-artists); }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    PillButton {
+                                        h-stretch: 1;
+                                        icon-path: root.nav-show-songs ? Icons.check : "";
+                                        label: "Songs";
+                                        active: root.nav-show-songs;
+                                        clicked => { root.toggle-nav-section("songs", !root.nav-show-songs); }
+                                    }
+                                    PillButton {
+                                        h-stretch: 1;
+                                        icon-path: root.nav-show-playlists ? Icons.check : "";
+                                        label: "Playlists";
+                                        active: root.nav-show-playlists;
+                                        clicked => { root.toggle-nav-section("playlists", !root.nav-show-playlists); }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    PillButton {
+                                        h-stretch: 1;
+                                        icon-path: root.nav-show-genres ? Icons.check : "";
+                                        label: "Genres";
+                                        active: root.nav-show-genres;
+                                        clicked => { root.toggle-nav-section("genres", !root.nav-show-genres); }
+                                    }
+                                    PillButton {
+                                        h-stretch: 1;
+                                        icon-path: root.nav-show-favorites ? Icons.check : "";
+                                        label: "Favorites";
+                                        active: root.nav-show-favorites;
+                                        clicked => { root.toggle-nav-section("favorites", !root.nav-show-favorites); }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Section 4: Local Storage & Offline Cache
+                        Rectangle {
+                            border-radius: 8px;
+                            background: Theme.bg-sidebar;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
+
+                            VerticalLayout {
+                                padding: 16px;
+                                spacing: 10px;
+
+                                Text {
+                                    text: "LOCAL STORAGE & OFFLINE CACHE";
+                                    color: Theme.text-muted;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+
+                                Text {
+                                    text: "Ultrasonic saves album artwork and offline music tracks locally on your device for rapid browsing and offline listening.";
+                                    color: Theme.text-secondary;
+                                    font-size: 12px;
+                                    wrap: word-wrap;
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    PillButton {
+                                        h-stretch: 1;
+                                        icon-path: Icons.close;
+                                        label: "Clear Cache & Local Storage";
+                                        clicked => { root.clear-local-storage(); }
+                                    }
+                                    PillButton {
+                                        h-stretch: 1;
+                                        icon-path: Icons.download;
+                                        label: "Clear Downloaded Tracks";
+                                        clicked => { root.clear-downloads(); }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Section 5: Visible Libraries
+                        Rectangle {
+                            border-radius: 8px;
+                            background: Theme.bg-sidebar;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
+
+                            VerticalLayout {
+                                padding: 16px;
+                                spacing: 10px;
+
+                                HorizontalLayout {
+                                    Text {
+                                        text: "VISIBLE LIBRARIES";
+                                        color: Theme.text-muted;
+                                        font-size: 11px;
+                                        font-weight: 700;
+                                        horizontal-stretch: 1;
+                                        vertical-alignment: center;
+                                    }
+                                    PillButton {
+                                        label: "Select All";
+                                        clicked => { root.select-all-libraries(); }
+                                    }
+                                }
+
+                                Text {
+                                    text: "Filter which music folders appear across Ultrasonic.";
+                                    color: Theme.text-secondary;
+                                    font-size: 12px;
+                                }
+
+                                VerticalLayout {
+                                    spacing: 6px;
+                                    for lib in root.libraries : PillButton {
+                                        h-stretch: 1;
+                                        icon-path: lib.selected ? Icons.check : "";
+                                        label: lib.name + " (#" + lib.id + ")";
+                                        active: lib.selected;
+                                        clicked => { root.toggle-library(lib.id); }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Section 6: Streaming Quality & Transcoding
+                        Rectangle {
+                            border-radius: 8px;
+                            background: Theme.bg-sidebar;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
+
+                            VerticalLayout {
+                                padding: 16px;
+                                spacing: 10px;
+
+                                Text {
+                                    text: "STREAMING QUALITY & TRANSCODING";
+                                    color: Theme.text-muted;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+
+                                Text {
                                     text: "Stream Format";
                                     color: Theme.text-secondary;
-                                    font-size: 13px;
-                                    vertical-alignment: center;
+                                    font-size: 12px;
                                 }
-                                for fmt in [
-                                    { id: "raw", label: "Original (raw)" },
-                                    { id: "flac", label: "FLAC" },
-                                    { id: "opus", label: "Opus" },
-                                    { id: "mp3", label: "MP3" },
-                                    { id: "aac", label: "AAC" },
-                                ] : VerticalLayout {
-                                    alignment: center;
-                                    PillButton {
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    for fmt in [
+                                        { id: "raw", label: "Original (raw)" },
+                                        { id: "flac", label: "FLAC" },
+                                        { id: "opus", label: "Opus" },
+                                    ] : PillButton {
+                                        h-stretch: 1;
                                         label: fmt.label;
                                         active: root.config-stream-format == fmt.id;
                                         clicked => { root.set-stream-format(fmt.id); }
                                     }
                                 }
-                            }
-                            HorizontalLayout {
-                                height: 30px;
-                                spacing: 8px;
-                                alignment: start;
-                                Text {
-                                    width: 140px;
-                                    text: "Max Bitrate";
-                                    color: Theme.text-secondary;
-                                    font-size: 13px;
-                                    vertical-alignment: center;
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    for fmt in [
+                                        { id: "mp3", label: "MP3" },
+                                        { id: "aac", label: "AAC" },
+                                    ] : PillButton {
+                                        h-stretch: 1;
+                                        label: fmt.label;
+                                        active: root.config-stream-format == fmt.id;
+                                        clicked => { root.set-stream-format(fmt.id); }
+                                    }
                                 }
-                                for br in [
-                                    { val: 0, label: "Unlimited" },
-                                    { val: 320, label: "320 kbps" },
-                                    { val: 256, label: "256 kbps" },
-                                    { val: 192, label: "192 kbps" },
-                                    { val: 128, label: "128 kbps" },
-                                    { val: 96, label: "96 kbps" },
-                                    { val: 64, label: "64 kbps" },
-                                ] : VerticalLayout {
-                                    alignment: center;
-                                    PillButton {
+
+                                Text {
+                                    text: "Stream Max Bitrate";
+                                    color: Theme.text-secondary;
+                                    font-size: 12px;
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    for br in [
+                                        { val: 0, label: "Unlimited" },
+                                        { val: 320, label: "320 kbps" },
+                                        { val: 256, label: "256 kbps" },
+                                    ] : PillButton {
+                                        h-stretch: 1;
+                                        label: br.label;
+                                        active: root.config-stream-bitrate == br.val;
+                                        clicked => { root.set-stream-bitrate(br.val); }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    for br in [
+                                        { val: 192, label: "192 kbps" },
+                                        { val: 128, label: "128 kbps" },
+                                        { val: 96, label: "96 kbps" },
+                                        { val: 64, label: "64 kbps" },
+                                    ] : PillButton {
+                                        h-stretch: 1;
                                         label: br.label;
                                         active: root.config-stream-bitrate == br.val;
                                         clicked => { root.set-stream-bitrate(br.val); }
@@ -2317,127 +2648,142 @@ export component AppWindow inherits Window {
                             }
                         }
 
-                        Hairline {}
+                        // Section 7: Download Quality & Auto-Download
+                        Rectangle {
+                            border-radius: 8px;
+                            background: Theme.bg-sidebar;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
 
-                        // Section 4: Configurable Download Rate, Format & Auto-Download Toggle
-                        VerticalLayout {
-                            spacing: 10px;
-                            Text {
-                                text: "DOWNLOAD QUALITY & AUTO-DOWNLOAD (`download` endpoint)";
-                                color: Theme.text-muted;
-                                font-size: 11px;
-                                font-weight: 700;
-                            }
-                            HorizontalLayout {
-                                height: 30px;
-                                spacing: 8px;
-                                alignment: start;
+                            VerticalLayout {
+                                padding: 16px;
+                                spacing: 10px;
+
                                 Text {
-                                    width: 140px;
+                                    text: "DOWNLOAD QUALITY & OFFLINE SYNC";
+                                    color: Theme.text-muted;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+
+                                Text {
                                     text: "Download Format";
                                     color: Theme.text-secondary;
-                                    font-size: 13px;
-                                    vertical-alignment: center;
+                                    font-size: 12px;
                                 }
-                                for fmt in [
-                                    { id: "raw", label: "Original (raw)" },
-                                    { id: "flac", label: "FLAC" },
-                                    { id: "opus", label: "Opus" },
-                                    { id: "mp3", label: "MP3" },
-                                    { id: "aac", label: "AAC" },
-                                ] : VerticalLayout {
-                                    alignment: center;
-                                    PillButton {
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    for fmt in [
+                                        { id: "raw", label: "Original (raw)" },
+                                        { id: "flac", label: "FLAC" },
+                                        { id: "opus", label: "Opus" },
+                                    ] : PillButton {
+                                        h-stretch: 1;
                                         label: fmt.label;
                                         active: root.config-download-format == fmt.id;
                                         clicked => { root.set-download-format(fmt.id); }
                                     }
                                 }
-                            }
-                            HorizontalLayout {
-                                height: 30px;
-                                spacing: 8px;
-                                alignment: start;
-                                Text {
-                                    width: 140px;
-                                    text: "Download Bitrate";
-                                    color: Theme.text-secondary;
-                                    font-size: 13px;
-                                    vertical-alignment: center;
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    for fmt in [
+                                        { id: "mp3", label: "MP3" },
+                                        { id: "aac", label: "AAC" },
+                                    ] : PillButton {
+                                        h-stretch: 1;
+                                        label: fmt.label;
+                                        active: root.config-download-format == fmt.id;
+                                        clicked => { root.set-download-format(fmt.id); }
+                                    }
                                 }
-                                for br in [
-                                    { val: 0, label: "Unlimited" },
-                                    { val: 320, label: "320 kbps" },
-                                    { val: 256, label: "256 kbps" },
-                                    { val: 192, label: "192 kbps" },
-                                    { val: 128, label: "128 kbps" },
-                                    { val: 96, label: "96 kbps" },
-                                    { val: 64, label: "64 kbps" },
-                                ] : VerticalLayout {
-                                    alignment: center;
-                                    PillButton {
+
+                                Text {
+                                    text: "Download Max Bitrate";
+                                    color: Theme.text-secondary;
+                                    font-size: 12px;
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    for br in [
+                                        { val: 0, label: "Unlimited" },
+                                        { val: 320, label: "320 kbps" },
+                                        { val: 256, label: "256 kbps" },
+                                    ] : PillButton {
+                                        h-stretch: 1;
                                         label: br.label;
                                         active: root.config-download-bitrate == br.val;
                                         clicked => { root.set-download-bitrate(br.val); }
                                     }
                                 }
-                            }
-                            HorizontalLayout {
-                                height: 30px;
-                                spacing: 12px;
-                                alignment: start;
-                                Text {
-                                    width: 140px;
-                                    text: "Auto-Download";
-                                    color: Theme.text-secondary;
-                                    font-size: 13px;
-                                    vertical-alignment: center;
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    for br in [
+                                        { val: 192, label: "192 kbps" },
+                                        { val: 128, label: "128 kbps" },
+                                        { val: 96, label: "96 kbps" },
+                                        { val: 64, label: "64 kbps" },
+                                    ] : PillButton {
+                                        h-stretch: 1;
+                                        label: br.label;
+                                        active: root.config-download-bitrate == br.val;
+                                        clicked => { root.set-download-bitrate(br.val); }
+                                    }
                                 }
-                                VerticalLayout {
-                                    alignment: center;
-                                    PillButton {
-                                        icon-path: root.config-auto-download-streamed ? Icons.check : "";
-                                        label: root.config-auto-download-streamed
-                                            ? "Automatically download tracks when streamed once (Enabled)"
-                                            : "Automatically download tracks when streamed once (Disabled)";
-                                        active: root.config-auto-download-streamed;
-                                        clicked => {
-                                            root.config-auto-download-streamed = !root.config-auto-download-streamed;
-                                            root.toggle-auto-download-streamed(root.config-auto-download-streamed);
-                                        }
+
+                                PillButton {
+                                    h-stretch: 1;
+                                    icon-path: root.config-auto-download-streamed ? Icons.check : "";
+                                    label: root.config-auto-download-streamed
+                                        ? "Auto-download streamed tracks for offline listening (Enabled)"
+                                        : "Auto-download streamed tracks for offline listening (Disabled)";
+                                    active: root.config-auto-download-streamed;
+                                    clicked => {
+                                        root.config-auto-download-streamed = !root.config-auto-download-streamed;
+                                        root.toggle-auto-download-streamed(root.config-auto-download-streamed);
                                     }
                                 }
                             }
                         }
 
-                        Hairline {}
+                        // Section 8: WebUI & Shares
+                        Rectangle {
+                            border-radius: 8px;
+                            background: Theme.bg-sidebar;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
 
-                        // Section 5: Shares & WebUI Info
-                        VerticalLayout {
-                            spacing: 8px;
-                            Text {
-                                text: "WEBUI & NAVIDROME SHARES";
-                                color: Theme.text-muted;
-                                font-size: 11px;
-                                font-weight: 700;
-                            }
-                            Text {
-                                text: "WebUI Server active on http://localhost:" + root.config-webui-port;
-                                color: Theme.text-secondary;
-                                font-size: 12px;
-                            }
-                            for sh in root.shares : HorizontalLayout {
-                                height: 30px;
+                            VerticalLayout {
+                                padding: 16px;
                                 spacing: 10px;
+
                                 Text {
-                                    text: sh.description + " — " + sh.url + " (" + sh.visit_count + " visits)";
-                                    color: Theme.text-primary;
-                                    font-size: 12px;
-                                    vertical-alignment: center;
-                                    horizontal-stretch: 1;
+                                    text: "WEBUI & NAVIDROME SHARES";
+                                    color: Theme.text-muted;
+                                    font-size: 11px;
+                                    font-weight: 700;
                                 }
-                                VerticalLayout {
-                                    alignment: center;
+
+                                Text {
+                                    text: "Built-in WebUI active at http://localhost:" + root.config-webui-port;
+                                    color: Theme.text-secondary;
+                                    font-size: 12px;
+                                }
+
+                                for sh in root.shares : HorizontalLayout {
+                                    height: 30px;
+                                    spacing: 10px;
+                                    Text {
+                                        text: sh.description + " — " + sh.url + " (" + sh.visit_count + " visits)";
+                                        color: Theme.text-primary;
+                                        font-size: 12px;
+                                        vertical-alignment: center;
+                                        horizontal-stretch: 1;
+                                        overflow: elide;
+                                    }
                                     PillButton {
                                         icon-path: Icons.close;
                                         label: "Delete";
@@ -2451,10 +2797,10 @@ export component AppWindow inherits Window {
             }
 
             // -----------------------------------------------------------------
-            // RIGHT INSPECTION DRAWER (Synchronized Lyrics or Up Next Queue)
+            // SPOTIFY-STYLE DESKTOP RIGHT PANEL (Cover, Synchronized Lyrics, Up Next Queue)
             // -----------------------------------------------------------------
-            if root.right-drawer != "none" && !root.is-mobile : Rectangle {
-                width: 300px;
+            if root.desktop-panel-open && !root.is-mobile : Rectangle {
+                width: 320px;
                 background: Theme.bg-sidebar;
 
                 HorizontalLayout {
@@ -2466,41 +2812,152 @@ export component AppWindow inherits Window {
                     VerticalLayout {
                         horizontal-stretch: 1;
                         padding: 14px;
-                        spacing: 10px;
+                        spacing: 12px;
 
+                        // Panel Header: Tab switcher + Maximize + Close
                         HorizontalLayout {
-                            height: 28px;
-                            Text {
-                                text: root.right-drawer == "lyrics" ? "Lyrics" : "Up Next";
-                                color: Theme.text-primary;
-                                font-size: 15px;
-                                font-weight: 700;
-                                horizontal-stretch: 1;
-                                vertical-alignment: center;
+                            height: 30px;
+                            spacing: 6px;
+
+                            PillButton {
+                                label: "Now Playing";
+                                active: root.expanded-player-tab == "cover";
+                                clicked => { root.expanded-player-tab = "cover"; }
                             }
-                            if root.right-drawer == "queue" : VerticalLayout {
-                                alignment: center;
-                                HorizontalLayout {
-                                    spacing: 4px;
-                                    PillButton {
-                                        label: "Save";
-                                        clicked => { root.save-queue-to-server(); }
-                                    }
-                                    PillButton {
-                                        label: "Load";
-                                        clicked => { root.load-queue-from-server(); }
-                                    }
-                                    PillButton {
-                                        label: "Clear";
-                                        clicked => { root.clear-queue(); }
-                                    }
+                            PillButton {
+                                label: "Lyrics";
+                                active: root.expanded-player-tab == "lyrics";
+                                clicked => { root.expanded-player-tab = "lyrics"; }
+                            }
+                            PillButton {
+                                label: "Queue";
+                                active: root.expanded-player-tab == "queue";
+                                clicked => { root.expanded-player-tab = "queue"; }
+                            }
+
+                            Rectangle { horizontal-stretch: 1; }
+
+                            IconButton {
+                                btn-size: 26px;
+                                icon-size: 13px;
+                                icon-path: Icons.expand;
+                                clicked => {
+                                    root.expanded-player-open = true;
+                                    root.desktop-panel-open = false;
                                 }
+                            }
+                            IconButton {
+                                btn-size: 26px;
+                                icon-size: 13px;
+                                icon-path: Icons.close;
+                                clicked => { root.desktop-panel-open = false; }
                             }
                         }
 
                         Hairline {}
 
-                        if root.right-drawer == "lyrics" : ScrollView {
+                        // Tab 1: Cover / Track info
+                        if root.expanded-player-tab == "cover" : VerticalLayout {
+                            spacing: 12px;
+                            alignment: start;
+
+                            Rectangle {
+                                width: 290px;
+                                height: 290px;
+                                border-radius: 8px;
+                                background: Theme.bg-elevated;
+                                border-width: 1px;
+                                border-color: Theme.border-subtle;
+                                clip: true;
+
+                                if root.now-playing-has-cover : Image {
+                                    width: 100%;
+                                    height: 100%;
+                                    source: root.now-playing-cover;
+                                    image-fit: cover;
+                                }
+                                if !root.now-playing-has-cover : VectorIcon {
+                                    x: (parent.width - self.width) / 2;
+                                    y: (parent.height - self.height) / 2;
+                                    commands: Icons.note;
+                                    icon-size: 64px;
+                                    icon-color: Theme.text-muted;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 4px;
+                                Text {
+                                    text: root.now-playing-title;
+                                    color: Theme.text-primary;
+                                    font-size: 16px;
+                                    font-weight: 700;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: root.now-playing-artist;
+                                    color: Theme.text-secondary;
+                                    font-size: 13px;
+                                    overflow: elide;
+                                }
+                                if root.now-playing-album != "" : Text {
+                                    text: root.now-playing-album;
+                                    color: Theme.text-muted;
+                                    font-size: 12px;
+                                    overflow: elide;
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Rectangle {
+                                    height: 20px;
+                                    border-radius: 4px;
+                                    background: Theme.bg-elevated;
+                                    border-width: 1px;
+                                    border-color: Theme.border-subtle;
+                                    HorizontalLayout {
+                                        padding-left: 6px;
+                                        padding-right: 6px;
+                                        Text {
+                                            text: root.now-playing-quality;
+                                            color: Theme.text-secondary;
+                                            font-size: 10px;
+                                            font-weight: 600;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+
+                                if root.now-playing-is-local : Rectangle {
+                                    width: 46px;
+                                    height: 20px;
+                                    border-radius: 4px;
+                                    background: #30d15824;
+                                    Text {
+                                        text: "LOCAL";
+                                        color: Theme.green-badge;
+                                        font-size: 9px;
+                                        font-weight: 700;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                }
+
+                                Rectangle { horizontal-stretch: 1; }
+
+                                if root.now-playing-id != "" : IconButton {
+                                    btn-size: 26px;
+                                    icon-size: 14px;
+                                    icon-path: root.now-playing-starred ? Icons.heart-fill : Icons.heart-line;
+                                    active: root.now-playing-starred;
+                                    clicked => { root.toggle-star(root.now-playing-id, !root.now-playing-starred); }
+                                }
+                            }
+                        }
+
+                        // Tab 2: Lyrics
+                        if root.expanded-player-tab == "lyrics" : ScrollView {
                             vertical-stretch: 1;
                             VerticalLayout {
                                 spacing: 12px;
@@ -2517,51 +2974,76 @@ export component AppWindow inherits Window {
                             }
                         }
 
-                        if root.right-drawer == "queue" : ScrollView {
+                        // Tab 3: Queue
+                        if root.expanded-player-tab == "queue" : VerticalLayout {
                             vertical-stretch: 1;
-                            VerticalLayout {
+                            spacing: 8px;
+
+                            HorizontalLayout {
                                 spacing: 4px;
-                                alignment: start;
+                                PillButton {
+                                    h-stretch: 1;
+                                    label: "Save";
+                                    clicked => { root.save-queue-to-server(); }
+                                }
+                                PillButton {
+                                    h-stretch: 1;
+                                    label: "Load";
+                                    clicked => { root.load-queue-from-server(); }
+                                }
+                                PillButton {
+                                    h-stretch: 1;
+                                    label: "Clear";
+                                    clicked => { root.clear-queue(); }
+                                }
+                            }
 
-                                for qs in root.queue-songs : Rectangle {
-                                    height: 40px;
-                                    border-radius: 5px;
-                                    background: qs.is_playing ? Theme.bg-selected : (q-item-touch.has-hover ? Theme.bg-hover : transparent);
+                            ScrollView {
+                                vertical-stretch: 1;
+                                VerticalLayout {
+                                    spacing: 4px;
+                                    alignment: start;
 
-                                    HorizontalLayout {
-                                        padding-left: 8px;
-                                        padding-right: 8px;
-                                        spacing: 8px;
+                                    for qs in root.queue-songs : Rectangle {
+                                        height: 40px;
+                                        border-radius: 5px;
+                                        background: qs.is_playing ? Theme.bg-selected : (q-item-touch.has-hover ? Theme.bg-hover : transparent);
 
-                                        VerticalLayout {
-                                            horizontal-stretch: 1;
-                                            alignment: center;
-                                            Text {
-                                                text: qs.title;
-                                                color: qs.is_playing ? Theme.accent : Theme.text-primary;
-                                                font-size: 12px;
-                                                font-weight: qs.is_playing ? 600 : 400;
-                                                overflow: elide;
+                                        HorizontalLayout {
+                                            padding-left: 8px;
+                                            padding-right: 8px;
+                                            spacing: 8px;
+
+                                            VerticalLayout {
+                                                horizontal-stretch: 1;
+                                                alignment: center;
+                                                Text {
+                                                    text: qs.title;
+                                                    color: qs.is_playing ? Theme.accent : Theme.text-primary;
+                                                    font-size: 12px;
+                                                    font-weight: qs.is_playing ? 600 : 400;
+                                                    overflow: elide;
+                                                }
+                                                Text {
+                                                    text: qs.artist;
+                                                    color: Theme.text-secondary;
+                                                    font-size: 11px;
+                                                    overflow: elide;
+                                                }
                                             }
+
                                             Text {
-                                                text: qs.artist;
-                                                color: Theme.text-secondary;
+                                                text: qs.duration_text;
+                                                color: Theme.text-muted;
                                                 font-size: 11px;
-                                                overflow: elide;
+                                                vertical-alignment: center;
                                             }
                                         }
 
-                                        Text {
-                                            text: qs.duration_text;
-                                            color: Theme.text-muted;
-                                            font-size: 11px;
-                                            vertical-alignment: center;
+                                        q-item-touch := TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { root.play-song(qs.id); }
                                         }
-                                    }
-
-                                    q-item-touch := TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => { root.play-song(qs.id); }
                                     }
                                 }
                             }
@@ -2587,7 +3069,7 @@ export component AppWindow inherits Window {
                     padding-right: 18px;
                     spacing: 20px;
 
-                    // Left: Artwork + Track Metadata + Favorite
+                    // Left: Artwork + Track Metadata + Favorite (Clicking toggles desktop side panel)
                     HorizontalLayout {
                         width: 320px;
                         spacing: 12px;
@@ -2620,9 +3102,8 @@ export component AppWindow inherits Window {
                                 TouchArea {
                                     mouse-cursor: pointer;
                                     clicked => {
-                                        if (root.now-playing-album-id != "") {
-                                            root.open-album(root.now-playing-album-id);
-                                        }
+                                        root.desktop-panel-open = !root.desktop-panel-open;
+                                        root.expanded-player-tab = "cover";
                                     }
                                 }
                             }
@@ -2667,6 +3148,14 @@ export component AppWindow inherits Window {
                                 color: Theme.text-secondary;
                                 font-size: 11px;
                                 overflow: elide;
+                            }
+
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.desktop-panel-open = !root.desktop-panel-open;
+                                    root.expanded-player-tab = "cover";
+                                }
                             }
                         }
 
@@ -2753,17 +3242,17 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    // Right: Stream/Lossless Quality Badge + Star Rating + Volume
+                    // Right: Quality Badge + Star Rating + Volume + Lyrics/Queue/Maximize Toggles
                     HorizontalLayout {
-                        width: 310px;
-                        spacing: 12px;
+                        width: 360px;
+                        spacing: 10px;
                         alignment: end;
 
                         VerticalLayout {
                             alignment: center;
                             Rectangle {
                                 height: 22px;
-                                width: 106px;
+                                width: 90px;
                                 border-radius: 4px;
                                 background: Theme.bg-elevated;
                                 border-width: 1px;
@@ -2812,10 +3301,55 @@ export component AppWindow inherits Window {
                         VerticalLayout {
                             alignment: center;
                             TrackSlider {
-                                width: 84px;
+                                width: 72px;
                                 fill-color: Theme.text-primary;
                                 value <=> root.volume;
                                 changed(val) => { root.transport-volume(val); }
+                            }
+                        }
+
+                        // Right panel toggles & Fullscreen Maximize button
+                        VerticalLayout {
+                            alignment: center;
+                            HorizontalLayout {
+                                spacing: 4px;
+                                IconButton {
+                                    btn-size: 28px;
+                                    icon-size: 14px;
+                                    icon-path: Icons.lyrics;
+                                    active: root.desktop-panel-open && root.expanded-player-tab == "lyrics";
+                                    clicked => {
+                                        if root.desktop-panel-open && root.expanded-player-tab == "lyrics" {
+                                            root.desktop-panel-open = false;
+                                        } else {
+                                            root.desktop-panel-open = true;
+                                            root.expanded-player-tab = "lyrics";
+                                        }
+                                    }
+                                }
+                                IconButton {
+                                    btn-size: 28px;
+                                    icon-size: 14px;
+                                    icon-path: Icons.queue;
+                                    active: root.desktop-panel-open && root.expanded-player-tab == "queue";
+                                    clicked => {
+                                        if root.desktop-panel-open && root.expanded-player-tab == "queue" {
+                                            root.desktop-panel-open = false;
+                                        } else {
+                                            root.desktop-panel-open = true;
+                                            root.expanded-player-tab = "queue";
+                                        }
+                                    }
+                                }
+                                IconButton {
+                                    btn-size: 28px;
+                                    icon-size: 14px;
+                                    icon-path: Icons.expand;
+                                    clicked => {
+                                        root.expanded-player-open = true;
+                                        root.desktop-panel-open = false;
+                                    }
+                                }
                             }
                         }
                     }
@@ -2827,6 +3361,7 @@ export component AppWindow inherits Window {
         // MOBILE MINI-PLAYER + BOTTOM TAB BAR
         // =====================================================================
         if root.is-mobile : VerticalLayout {
+            // Mobile Mini-Player (Tap opens fullscreen Expanded Player)
             Rectangle {
                 height: 56px;
                 background: Theme.bg-elevated;
@@ -2839,45 +3374,56 @@ export component AppWindow inherits Window {
                         padding-right: 12px;
                         spacing: 10px;
 
-                        VerticalLayout {
-                            alignment: center;
-                            Rectangle {
-                                width: 38px;
-                                height: 38px;
-                                border-radius: 5px;
-                                background: Theme.bg-sidebar;
-                                clip: true;
-                                if root.now-playing-has-cover : Image {
-                                    width: 100%;
-                                    height: 100%;
-                                    source: root.now-playing-cover;
-                                    image-fit: cover;
-                                }
-                                if !root.now-playing-has-cover : VectorIcon {
-                                    x: (parent.width - self.width) / 2;
-                                    y: (parent.height - self.height) / 2;
-                                    commands: Icons.note;
-                                    icon-size: 16px;
-                                    icon-color: Theme.text-muted;
-                                }
-                            }
-                        }
-
-                        VerticalLayout {
+                        // Clickable artwork & info container
+                        HorizontalLayout {
                             horizontal-stretch: 1;
-                            alignment: center;
-                            Text {
-                                text: root.now-playing-title;
-                                color: Theme.text-primary;
-                                font-size: 13px;
-                                font-weight: 600;
-                                overflow: elide;
+                            spacing: 10px;
+
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    width: 38px;
+                                    height: 38px;
+                                    border-radius: 5px;
+                                    background: Theme.bg-sidebar;
+                                    clip: true;
+                                    if root.now-playing-has-cover : Image {
+                                        width: 100%;
+                                        height: 100%;
+                                        source: root.now-playing-cover;
+                                        image-fit: cover;
+                                    }
+                                    if !root.now-playing-has-cover : VectorIcon {
+                                        x: (parent.width - self.width) / 2;
+                                        y: (parent.height - self.height) / 2;
+                                        commands: Icons.note;
+                                        icon-size: 16px;
+                                        icon-color: Theme.text-muted;
+                                    }
+                                }
                             }
-                            Text {
-                                text: root.now-playing-artist + " · " + root.now-playing-quality;
-                                color: Theme.text-secondary;
-                                font-size: 11px;
-                                overflow: elide;
+
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                alignment: center;
+                                Text {
+                                    text: root.now-playing-title;
+                                    color: Theme.text-primary;
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: root.now-playing-artist + " · " + root.now-playing-quality;
+                                    color: Theme.text-secondary;
+                                    font-size: 11px;
+                                    overflow: elide;
+                                }
+                            }
+
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.expanded-player-open = true; }
                             }
                         }
 
@@ -2904,6 +3450,7 @@ export component AppWindow inherits Window {
                 }
             }
 
+            // Mobile Bottom Navigation Bar (No dedicated offline tab; includes Search; dynamic visibility)
             Rectangle {
                 height: 54px;
                 background: Theme.bg-transport;
@@ -2915,14 +3462,7 @@ export component AppWindow inherits Window {
                         padding-left: 6px;
                         padding-right: 6px;
 
-                        for tab in [
-                            { id: "listen_now", icon: Icons.listen-now, title: "Listen Now" },
-                            { id: "albums", icon: Icons.album, title: "Albums" },
-                            { id: "artists", icon: Icons.artist, title: "Artists" },
-                            { id: "songs", icon: Icons.note, title: "Songs" },
-                            { id: "downloads", icon: Icons.download, title: "Offline" },
-                            { id: "settings", icon: Icons.settings, title: "Settings" },
-                        ] : Rectangle {
+                        if root.nav-show-listen-now : Rectangle {
                             horizontal-stretch: 1;
                             VerticalLayout {
                                 alignment: center;
@@ -2930,31 +3470,564 @@ export component AppWindow inherits Window {
                                 HorizontalLayout {
                                     alignment: center;
                                     VectorIcon {
-                                        commands: tab.icon;
+                                        commands: Icons.listen-now;
                                         icon-size: 15px;
-                                        icon-color: root.active-view == tab.id ? Theme.accent : Theme.text-secondary;
+                                        icon-color: root.active-view == "listen_now" ? Theme.accent : Theme.text-secondary;
                                     }
                                 }
                                 Text {
-                                    text: tab.title;
-                                    color: root.active-view == tab.id ? Theme.accent : Theme.text-muted;
+                                    text: "Listen Now";
+                                    color: root.active-view == "listen_now" ? Theme.accent : Theme.text-muted;
                                     font-size: 10px;
-                                    font-weight: root.active-view == tab.id ? 600 : 400;
+                                    font-weight: root.active-view == "listen_now" ? 600 : 400;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.navigate("listen_now"); }
+                            }
+                        }
+
+                        if root.nav-show-search : Rectangle {
+                            horizontal-stretch: 1;
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 3px;
+                                HorizontalLayout {
+                                    alignment: center;
+                                    VectorIcon {
+                                        commands: Icons.search;
+                                        icon-size: 15px;
+                                        icon-color: root.active-view == "search" ? Theme.accent : Theme.text-secondary;
+                                    }
+                                }
+                                Text {
+                                    text: "Search";
+                                    color: root.active-view == "search" ? Theme.accent : Theme.text-muted;
+                                    font-size: 10px;
+                                    font-weight: root.active-view == "search" ? 600 : 400;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.navigate("search"); }
+                            }
+                        }
+
+                        if root.nav-show-albums : Rectangle {
+                            horizontal-stretch: 1;
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 3px;
+                                HorizontalLayout {
+                                    alignment: center;
+                                    VectorIcon {
+                                        commands: Icons.album;
+                                        icon-size: 15px;
+                                        icon-color: root.active-view == "albums" ? Theme.accent : Theme.text-secondary;
+                                    }
+                                }
+                                Text {
+                                    text: "Albums";
+                                    color: root.active-view == "albums" ? Theme.accent : Theme.text-muted;
+                                    font-size: 10px;
+                                    font-weight: root.active-view == "albums" ? 600 : 400;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.navigate("albums"); }
+                            }
+                        }
+
+                        if root.nav-show-artists : Rectangle {
+                            horizontal-stretch: 1;
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 3px;
+                                HorizontalLayout {
+                                    alignment: center;
+                                    VectorIcon {
+                                        commands: Icons.artist;
+                                        icon-size: 15px;
+                                        icon-color: root.active-view == "artists" ? Theme.accent : Theme.text-secondary;
+                                    }
+                                }
+                                Text {
+                                    text: "Artists";
+                                    color: root.active-view == "artists" ? Theme.accent : Theme.text-muted;
+                                    font-size: 10px;
+                                    font-weight: root.active-view == "artists" ? 600 : 400;
                                     horizontal-alignment: center;
                                 }
                             }
                             TouchArea {
                                 mouse-cursor: pointer;
                                 clicked => {
-                                    if tab.id == "artists" {
-                                        root.selected-artist-id = "";
-                                    }
-                                    if tab.id == "genres" {
-                                        root.selected-genre-name = "";
-                                    }
-                                    root.navigate(tab.id);
+                                    root.selected-artist-id = "";
+                                    root.navigate("artists");
                                 }
                             }
+                        }
+
+                        if root.nav-show-songs : Rectangle {
+                            horizontal-stretch: 1;
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 3px;
+                                HorizontalLayout {
+                                    alignment: center;
+                                    VectorIcon {
+                                        commands: Icons.note;
+                                        icon-size: 15px;
+                                        icon-color: root.active-view == "songs" ? Theme.accent : Theme.text-secondary;
+                                    }
+                                }
+                                Text {
+                                    text: "Songs";
+                                    color: root.active-view == "songs" ? Theme.accent : Theme.text-muted;
+                                    font-size: 10px;
+                                    font-weight: root.active-view == "songs" ? 600 : 400;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.navigate("songs"); }
+                            }
+                        }
+
+                        Rectangle {
+                            horizontal-stretch: 1;
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 3px;
+                                HorizontalLayout {
+                                    alignment: center;
+                                    VectorIcon {
+                                        commands: Icons.settings;
+                                        icon-size: 15px;
+                                        icon-color: root.active-view == "settings" ? Theme.accent : Theme.text-secondary;
+                                    }
+                                }
+                                Text {
+                                    text: "Settings";
+                                    color: root.active-view == "settings" ? Theme.accent : Theme.text-muted;
+                                    font-size: 10px;
+                                    font-weight: root.active-view == "settings" ? 600 : 400;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.navigate("settings"); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // FULLSCREEN EXPANDED PLAYER OVERLAY (Mobile Fullscreen + Desktop Maximized)
+    // =========================================================================
+    if root.expanded-player-open : Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
+        background: Theme.bg-canvas;
+
+        VerticalLayout {
+            // Top Navigation Bar
+            Rectangle {
+                height: 56px;
+                background: Theme.bg-sidebar;
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    spacing: 12px;
+
+                    VerticalLayout {
+                        alignment: center;
+                        IconButton {
+                            btn-size: 36px;
+                            icon-size: 18px;
+                            icon-path: Icons.chevron-down;
+                            clicked => { root.expanded-player-open = false; }
+                        }
+                    }
+
+                    // Mode Switcher Pills
+                    HorizontalLayout {
+                        horizontal-stretch: 1;
+                        alignment: center;
+                        spacing: 8px;
+
+                        PillButton {
+                            label: "Song";
+                            active: root.expanded-player-tab == "cover";
+                            clicked => { root.expanded-player-tab = "cover"; }
+                        }
+                        PillButton {
+                            label: "Lyrics";
+                            active: root.expanded-player-tab == "lyrics";
+                            clicked => { root.expanded-player-tab = "lyrics"; }
+                        }
+                        PillButton {
+                            label: "Queue";
+                            active: root.expanded-player-tab == "queue";
+                            clicked => { root.expanded-player-tab = "queue"; }
+                        }
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+                        if root.now-playing-id != "" : IconButton {
+                            btn-size: 36px;
+                            icon-size: 18px;
+                            icon-path: root.now-playing-starred ? Icons.heart-fill : Icons.heart-line;
+                            active: root.now-playing-starred;
+                            clicked => { root.toggle-star(root.now-playing-id, !root.now-playing-starred); }
+                        }
+                    }
+                }
+            }
+
+            Hairline {}
+
+            // Body Area: Cover & Controls
+            if root.expanded-player-tab == "cover" : VerticalLayout {
+                vertical-stretch: 1;
+                padding-left: 24px;
+                padding-right: 24px;
+                padding-top: 16px;
+                padding-bottom: 20px;
+                alignment: center;
+                spacing: 16px;
+
+                // Center Album Artwork
+                HorizontalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: Math.min(300px, root.width - 64px);
+                        height: self.width;
+                        border-radius: 12px;
+                        background: Theme.bg-elevated;
+                        border-width: 1px;
+                        border-color: Theme.border-subtle;
+                        clip: true;
+
+                        if root.now-playing-has-cover : Image {
+                            width: 100%;
+                            height: 100%;
+                            source: root.now-playing-cover;
+                            image-fit: cover;
+                        }
+                        if !root.now-playing-has-cover : VectorIcon {
+                            x: (parent.width - self.width) / 2;
+                            y: (parent.height - self.height) / 2;
+                            commands: Icons.note;
+                            icon-size: 72px;
+                            icon-color: Theme.text-muted;
+                        }
+                    }
+                }
+
+                // Track Title & Artist
+                VerticalLayout {
+                    spacing: 4px;
+                    alignment: center;
+
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 8px;
+                        Text {
+                            text: root.now-playing-title;
+                            color: Theme.text-primary;
+                            font-size: 20px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            overflow: elide;
+                        }
+                        if root.now-playing-is-local : VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 44px;
+                                height: 18px;
+                                border-radius: 4px;
+                                background: #30d15824;
+                                Text {
+                                    text: "LOCAL";
+                                    color: Theme.green-badge;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: root.now-playing-artist + (root.now-playing-album != "" ? " — " + root.now-playing-album : "");
+                        color: Theme.text-secondary;
+                        font-size: 14px;
+                        horizontal-alignment: center;
+                        overflow: elide;
+                    }
+
+                    Text {
+                        text: root.now-playing-quality;
+                        color: Theme.text-muted;
+                        font-size: 11px;
+                        horizontal-alignment: center;
+                    }
+                }
+
+                // Scrubber Bar
+                VerticalLayout {
+                    spacing: 4px;
+                    TrackSlider {
+                        value <=> root.playback-progress;
+                        changed(val) => { root.transport-seek(val); }
+                    }
+                    HorizontalLayout {
+                        Text {
+                            text: root.playback-current-time;
+                            color: Theme.text-muted;
+                            font-size: 12px;
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                        Text {
+                            text: root.playback-total-time;
+                            color: Theme.text-muted;
+                            font-size: 12px;
+                        }
+                    }
+                }
+
+                // Big Transport Controls
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 24px;
+
+                    IconButton {
+                        btn-size: 40px;
+                        icon-size: 18px;
+                        icon-path: Icons.shuffle;
+                        active: root.shuffle-enabled;
+                        clicked => { root.toggle-shuffle(); }
+                    }
+                    IconButton {
+                        btn-size: 44px;
+                        icon-size: 20px;
+                        icon-path: Icons.prev;
+                        clicked => { root.transport-prev(); }
+                    }
+                    IconButton {
+                        btn-size: 56px;
+                        icon-size: 26px;
+                        icon-path: root.is-playing ? Icons.pause : Icons.play;
+                        primary: true;
+                        clicked => { root.transport-play-pause(); }
+                    }
+                    IconButton {
+                        btn-size: 44px;
+                        icon-size: 20px;
+                        icon-path: Icons.next;
+                        clicked => { root.transport-next(); }
+                    }
+                    IconButton {
+                        btn-size: 40px;
+                        icon-size: 18px;
+                        icon-path: Icons.repeat;
+                        active: root.repeat-mode != "off";
+                        clicked => { root.cycle-repeat(); }
+                    }
+                }
+
+                // Volume Slider Row
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 12px;
+                    width: Math.min(280px, root.width - 64px);
+
+                    VectorIcon {
+                        commands: Icons.volume;
+                        icon-size: 16px;
+                        icon-color: Theme.text-secondary;
+                    }
+                    TrackSlider {
+                        horizontal-stretch: 1;
+                        fill-color: Theme.text-primary;
+                        value <=> root.volume;
+                        changed(val) => { root.transport-volume(val); }
+                    }
+                }
+            }
+
+            // Body Area: Lyrics
+            if root.expanded-player-tab == "lyrics" : VerticalLayout {
+                vertical-stretch: 1;
+                padding: 20px;
+
+                ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        spacing: 16px;
+                        alignment: center;
+                        for line in root.lyrics-lines : Text {
+                            text: line.text;
+                            color: line.active ? Theme.text-primary : Theme.text-secondary;
+                            font-size: line.active ? 20px : 15px;
+                            font-weight: line.active ? 700 : 500;
+                            horizontal-alignment: center;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+
+                // Mini Scrubber & Transport for lyrics mode
+                VerticalLayout {
+                    spacing: 8px;
+                    TrackSlider {
+                        value <=> root.playback-progress;
+                        changed(val) => { root.transport-seek(val); }
+                    }
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 20px;
+                        IconButton {
+                            btn-size: 34px;
+                            icon-size: 16px;
+                            icon-path: Icons.prev;
+                            clicked => { root.transport-prev(); }
+                        }
+                        IconButton {
+                            btn-size: 42px;
+                            icon-size: 20px;
+                            icon-path: root.is-playing ? Icons.pause : Icons.play;
+                            primary: true;
+                            clicked => { root.transport-play-pause(); }
+                        }
+                        IconButton {
+                            btn-size: 34px;
+                            icon-size: 16px;
+                            icon-path: Icons.next;
+                            clicked => { root.transport-next(); }
+                        }
+                    }
+                }
+            }
+
+            // Body Area: Queue
+            if root.expanded-player-tab == "queue" : VerticalLayout {
+                vertical-stretch: 1;
+                padding: 16px;
+                spacing: 10px;
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    PillButton {
+                        h-stretch: 1;
+                        label: "Save Queue";
+                        clicked => { root.save-queue-to-server(); }
+                    }
+                    PillButton {
+                        h-stretch: 1;
+                        label: "Load Queue";
+                        clicked => { root.load-queue-from-server(); }
+                    }
+                    PillButton {
+                        h-stretch: 1;
+                        label: "Clear";
+                        clicked => { root.clear-queue(); }
+                    }
+                }
+
+                ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        spacing: 4px;
+                        alignment: start;
+
+                        for qs in root.queue-songs : Rectangle {
+                            height: 48px;
+                            border-radius: 6px;
+                            background: qs.is_playing ? Theme.bg-selected : (exp-q-touch.has-hover ? Theme.bg-hover : transparent);
+
+                            HorizontalLayout {
+                                padding-left: 12px;
+                                padding-right: 12px;
+                                spacing: 10px;
+
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    alignment: center;
+                                    Text {
+                                        text: qs.title;
+                                        color: qs.is_playing ? Theme.accent : Theme.text-primary;
+                                        font-size: 13px;
+                                        font-weight: qs.is_playing ? 700 : 400;
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: qs.artist;
+                                        color: Theme.text-secondary;
+                                        font-size: 12px;
+                                        overflow: elide;
+                                    }
+                                }
+
+                                Text {
+                                    text: qs.duration_text;
+                                    color: Theme.text-muted;
+                                    font-size: 12px;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            exp-q-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.play-song(qs.id); }
+                            }
+                        }
+                    }
+                }
+
+                // Mini Scrubber & Transport for queue mode
+                VerticalLayout {
+                    spacing: 8px;
+                    TrackSlider {
+                        value <=> root.playback-progress;
+                        changed(val) => { root.transport-seek(val); }
+                    }
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 20px;
+                        IconButton {
+                            btn-size: 34px;
+                            icon-size: 16px;
+                            icon-path: Icons.prev;
+                            clicked => { root.transport-prev(); }
+                        }
+                        IconButton {
+                            btn-size: 42px;
+                            icon-size: 20px;
+                            icon-path: root.is-playing ? Icons.pause : Icons.play;
+                            primary: true;
+                            clicked => { root.transport-play-pause(); }
+                        }
+                        IconButton {
+                            btn-size: 34px;
+                            icon-size: 16px;
+                            icon-path: Icons.next;
+                            clicked => { root.transport-next(); }
                         }
                     }
                 }

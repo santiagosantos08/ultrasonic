@@ -3,6 +3,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+fn default_true() -> bool {
+    true
+}
+
+fn default_layout_override() -> String {
+    "auto".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub server_url: String,
@@ -26,6 +34,28 @@ pub struct AppConfig {
     pub webui_enabled: bool,
     pub webui_port: u16,
     pub volume: f32,
+
+    /// Layout override: "auto", "mobile", or "desktop"
+    #[serde(default = "default_layout_override")]
+    pub layout_override: String,
+
+    /// Navigation visibility toggles
+    #[serde(default = "default_true")]
+    pub nav_show_listen_now: bool,
+    #[serde(default = "default_true")]
+    pub nav_show_albums: bool,
+    #[serde(default = "default_true")]
+    pub nav_show_artists: bool,
+    #[serde(default = "default_true")]
+    pub nav_show_songs: bool,
+    #[serde(default = "default_true")]
+    pub nav_show_playlists: bool,
+    #[serde(default = "default_true")]
+    pub nav_show_genres: bool,
+    #[serde(default = "default_true")]
+    pub nav_show_favorites: bool,
+    #[serde(default = "default_true")]
+    pub nav_show_search: bool,
 }
 
 impl Default for AppConfig {
@@ -44,6 +74,15 @@ impl Default for AppConfig {
             webui_enabled: true,
             webui_port: 4534,
             volume: 0.85,
+            layout_override: "auto".to_string(),
+            nav_show_listen_now: true,
+            nav_show_albums: true,
+            nav_show_artists: true,
+            nav_show_songs: true,
+            nav_show_playlists: true,
+            nav_show_genres: true,
+            nav_show_favorites: true,
+            nav_show_search: true,
         }
     }
 }
@@ -94,6 +133,19 @@ impl AppConfig {
         let _ = std::fs::create_dir_all(&dir);
         dir
     }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn clear_covers_cache() {
+        let dir = Self::covers_dir();
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn clear_covers_cache() {}
 
     pub fn load() -> Self {
         #[cfg(not(target_arch = "wasm32"))]
