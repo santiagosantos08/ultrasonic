@@ -11,6 +11,23 @@ fn default_layout_override() -> String {
     "auto".to_string()
 }
 
+fn default_theme_id() -> String {
+    "default".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomTheme {
+    pub id: String,
+    pub name: String,
+    pub accent: String,
+    pub bg_canvas: String,
+    pub bg_sidebar: String,
+    pub bg_elevated: String,
+    pub text_primary: String,
+    pub text_secondary: String,
+    pub is_light: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub server_url: String,
@@ -56,6 +73,13 @@ pub struct AppConfig {
     pub nav_show_favorites: bool,
     #[serde(default = "default_true")]
     pub nav_show_search: bool,
+
+    /// Selected theme ID ("default", "emerald", "ocean", "amethyst", "amber", "light", "nord", or custom ID)
+    #[serde(default = "default_theme_id")]
+    pub active_theme: String,
+    /// User custom themes
+    #[serde(default)]
+    pub custom_themes: Vec<CustomTheme>,
 }
 
 impl Default for AppConfig {
@@ -83,6 +107,8 @@ impl Default for AppConfig {
             nav_show_genres: true,
             nav_show_favorites: true,
             nav_show_search: true,
+            active_theme: "default".to_string(),
+            custom_themes: Vec::new(),
         }
     }
 }

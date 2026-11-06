@@ -7,7 +7,8 @@ import {
     PlaylistItem,
     GenreItem,
     LyricLineItem,
-    ShareItem
+    ShareItem,
+    ThemeItem
 } from "models.slint";
 export {
     LibraryItem,
@@ -17,9 +18,11 @@ export {
     PlaylistItem,
     GenreItem,
     LyricLineItem,
-    ShareItem
+    ShareItem,
+    ThemeItem
 }
 import { Theme, Icons, Hairline, VectorIcon } from "theme.slint";
+export { Theme }
 import {
     StyledTextInput,
     TrackSlider,
@@ -42,6 +45,7 @@ import {
 
 export component AppWindow inherits Window {
     title: "Ultrasonic — Navidrome Music";
+    icon: @image-url("../graphics/square_logo.png");
     min-width: 380px;
     min-height: 580px;
     preferred-width: 1280px;
@@ -120,6 +124,14 @@ export component AppWindow inherits Window {
     in-out property <[SongItem]> queue-songs: [];
     in-out property <[LyricLineItem]> lyrics-lines: [];
     in-out property <[ShareItem]> shares: [];
+    in-out property <[ThemeItem]> available-themes: [];
+
+    // Theme Customization State
+    in-out property <string> active-theme-id: "default";
+    in-out property <string> custom-theme-input-name: "";
+    in-out property <string> custom-theme-input-accent: "#ff2a85";
+    in-out property <string> custom-theme-input-bg: "#0d0d14";
+    in-out property <bool> custom-theme-input-is-light: false;
 
     // Selected detail headers
     in-out property <AlbumItem> current-album-detail;
@@ -214,6 +226,9 @@ export component AppWindow inherits Window {
     callback set-layout-override(string);
     callback toggle-nav-section(string, bool);
     callback clear-local-storage();
+    callback select-theme(string);
+    callback create-custom-theme(string, string, string, bool);
+    callback delete-custom-theme(string);
 
     // =========================================================================
     // STARTUP LOGIN SCREEN (Shown whenever not connected and not in offline mode)
@@ -2368,6 +2383,232 @@ export component AppWindow inherits Window {
                                         label: "Always Desktop";
                                         active: root.layout-override == "desktop";
                                         clicked => { root.set-layout-override("desktop"); }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Section 2B: Color Themes & Customization
+                        Rectangle {
+                            border-radius: 8px;
+                            background: Theme.bg-sidebar;
+                            border-width: 1px;
+                            border-color: Theme.border-subtle;
+
+                            VerticalLayout {
+                                padding: 16px;
+                                spacing: 12px;
+
+                                Text {
+                                    text: "COLOR THEMES & PALETTES";
+                                    color: Theme.text-muted;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+
+                                Text {
+                                    text: "Select a bundled theme (Apple Dark, Emerald, Ocean, Amethyst, Amber, Apple Light, Nordic) or create your own custom color scheme.";
+                                    color: Theme.text-secondary;
+                                    font-size: 12px;
+                                    wrap: word-wrap;
+                                }
+
+                                // List of Available Themes
+                                VerticalLayout {
+                                    spacing: 6px;
+                                    for th in root.available-themes : HorizontalLayout {
+                                        height: 34px;
+                                        spacing: 8px;
+                                        Rectangle {
+                                            horizontal-stretch: 1;
+                                            border-radius: 6px;
+                                            background: root.active-theme-id == th.id ? Theme.accent-soft : (th-touch.has-hover ? Theme.bg-hover : Theme.bg-elevated);
+                                            border-width: 1px;
+                                            border-color: root.active-theme-id == th.id ? Theme.accent : Theme.border-subtle;
+
+                                            HorizontalLayout {
+                                                padding-left: 12px;
+                                                padding-right: 12px;
+                                                spacing: 10px;
+
+                                                // Accent Preview Circle
+                                                VerticalLayout {
+                                                    alignment: center;
+                                                    Rectangle {
+                                                        width: 14px;
+                                                        height: 14px;
+                                                        border-radius: 7px;
+                                                        background: th.id == "default" ? #fa2d48 :
+                                                                    th.id == "emerald" ? #30d158 :
+                                                                    th.id == "ocean" ? #0a84ff :
+                                                                    th.id == "amethyst" ? #bf5af2 :
+                                                                    th.id == "amber" ? #ff9f0a :
+                                                                    th.id == "light" ? #fa2d48 :
+                                                                    th.id == "nord" ? #88c0d0 : Theme.accent;
+                                                        border-width: 1px;
+                                                        border-color: #ffffff30;
+                                                    }
+                                                }
+
+                                                Text {
+                                                    text: th.name;
+                                                    color: root.active-theme-id == th.id ? Theme.accent : Theme.text-primary;
+                                                    font-size: 13px;
+                                                    font-weight: root.active-theme-id == th.id ? 600 : 500;
+                                                    vertical-alignment: center;
+                                                    horizontal-stretch: 1;
+                                                    overflow: elide;
+                                                }
+
+                                                if root.active-theme-id == th.id : VerticalLayout {
+                                                    alignment: center;
+                                                    VectorIcon {
+                                                        commands: Icons.check;
+                                                        icon-size: 14px;
+                                                        icon-color: Theme.accent;
+                                                    }
+                                                }
+                                            }
+
+                                            th-touch := TouchArea {
+                                                mouse-cursor: pointer;
+                                                clicked => { root.select-theme(th.id); }
+                                            }
+                                        }
+
+                                        if th.is_custom : VerticalLayout {
+                                            alignment: center;
+                                            IconButton {
+                                                btn-size: 30px;
+                                                icon-size: 14px;
+                                                icon-path: Icons.close;
+                                                clicked => { root.delete-custom-theme(th.id); }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Create Custom Theme Sub-Card
+                                Rectangle {
+                                    border-radius: 6px;
+                                    background: Theme.bg-elevated;
+                                    border-width: 1px;
+                                    border-color: Theme.border-subtle;
+
+                                    VerticalLayout {
+                                        padding: 14px;
+                                        spacing: 10px;
+
+                                        Text {
+                                            text: "CREATE CUSTOM THEME";
+                                            color: Theme.text-muted;
+                                            font-size: 11px;
+                                            font-weight: 700;
+                                        }
+
+                                        VerticalLayout {
+                                            spacing: 4px;
+                                            Text {
+                                                text: "Theme Name";
+                                                color: Theme.text-secondary;
+                                                font-size: 12px;
+                                            }
+                                            StyledTextInput {
+                                                text <=> root.custom-theme-input-name;
+                                                placeholder: "e.g. Cyberpunk, Sunset, Midnight...";
+                                            }
+                                        }
+
+                                        VerticalLayout {
+                                            spacing: 4px;
+                                            Text {
+                                                text: "Accent Color (Hex)";
+                                                color: Theme.text-secondary;
+                                                font-size: 12px;
+                                            }
+                                            HorizontalLayout {
+                                                spacing: 8px;
+                                                StyledTextInput {
+                                                    horizontal-stretch: 1;
+                                                    text <=> root.custom-theme-input-accent;
+                                                    placeholder: "#ff2a85";
+                                                }
+                                                for sw in [
+                                                    { hex: "#ff2a85" },
+                                                    { hex: "#00f0ff" },
+                                                    { hex: "#a3e635" },
+                                                    { hex: "#f97316" },
+                                                    { hex: "#8b5cf6" },
+                                                    { hex: "#eab308" }
+                                                ] : Rectangle {
+                                                    width: 28px;
+                                                    height: 28px;
+                                                    border-radius: 14px;
+                                                    background: sw.hex == "#ff2a85" ? #ff2a85 :
+                                                                sw.hex == "#00f0ff" ? #00f0ff :
+                                                                sw.hex == "#a3e635" ? #a3e635 :
+                                                                sw.hex == "#f97316" ? #f97316 :
+                                                                sw.hex == "#8b5cf6" ? #8b5cf6 : #eab308;
+                                                    border-width: root.custom-theme-input-accent == sw.hex ? 2px : 1px;
+                                                    border-color: root.custom-theme-input-accent == sw.hex ? #ffffff : #ffffff20;
+                                                    TouchArea {
+                                                        mouse-cursor: pointer;
+                                                        clicked => { root.custom-theme-input-accent = sw.hex; }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        VerticalLayout {
+                                            spacing: 4px;
+                                            Text {
+                                                text: "Background Canvas (Hex, optional)";
+                                                color: Theme.text-secondary;
+                                                font-size: 12px;
+                                            }
+                                            StyledTextInput {
+                                                text <=> root.custom-theme-input-bg;
+                                                placeholder: "#0d0d14";
+                                            }
+                                        }
+
+                                        HorizontalLayout {
+                                            spacing: 8px;
+                                            Text {
+                                                text: "Base Mode:";
+                                                color: Theme.text-secondary;
+                                                font-size: 12px;
+                                                vertical-alignment: center;
+                                            }
+                                            PillButton {
+                                                label: "Dark Canvas";
+                                                active: !root.custom-theme-input-is-light;
+                                                clicked => { root.custom-theme-input-is-light = false; }
+                                            }
+                                            PillButton {
+                                                label: "Light Canvas";
+                                                active: root.custom-theme-input-is-light;
+                                                clicked => { root.custom-theme-input-is-light = true; }
+                                            }
+                                        }
+
+                                        PillButton {
+                                            h-stretch: 1;
+                                            primary: true;
+                                            icon-path: Icons.plus;
+                                            label: "Save & Apply Custom Theme";
+                                            clicked => {
+                                                if root.custom-theme-input-name != "" {
+                                                    root.create-custom-theme(
+                                                        root.custom-theme-input-name,
+                                                        root.custom-theme-input-accent,
+                                                        root.custom-theme-input-bg,
+                                                        root.custom-theme-input-is-light
+                                                    );
+                                                    root.custom-theme-input-name = "";
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

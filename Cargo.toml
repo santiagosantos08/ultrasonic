@@ -46,3 +46,28 @@ getrandom = { version = "0.2", features = ["js"] }
 
 [build-dependencies]
 slint-build = "1.9"
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
+
+[package.metadata.android]
+package = "com.ultrasonic.player"
+apk_name = "ultrasonic"
+label = "Ultrasonic"
+icon = "@mipmap/ic_launcher"
+
+[package.metadata.android.sdk]
+min_sdk_version = 26
+target_sdk_version = 34
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.ACCESS_NETWORK_STATE"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.FOREGROUND_SERVICE"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"

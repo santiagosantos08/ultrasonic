@@ -5,6 +5,7 @@ pub mod audio;
 pub mod config;
 pub mod controller;
 pub mod models;
+pub mod theme;
 pub mod webui;
 
 use controller::{attach_callbacks_and_run, AppState};
@@ -129,5 +130,63 @@ mod tests {
         idx.store_track(song, &dummy_bytes, "raw", 0)
             .expect("Should store track locally");
         assert!(idx.is_downloaded("auto-dl-test-track"));
+    }
+
+    #[test]
+    fn test_bundled_themes_and_hex_color_parsing() {
+        use crate::theme::{get_bundled_themes, parse_hex_color};
+        let themes = get_bundled_themes();
+        assert!(themes.len() >= 7);
+        let ids: Vec<&str> = themes.iter().map(|t| t.id.as_str()).collect();
+        assert!(ids.contains(&"default"));
+        assert!(ids.contains(&"emerald"));
+        assert!(ids.contains(&"ocean"));
+        assert!(ids.contains(&"amethyst"));
+        assert!(ids.contains(&"amber"));
+        assert!(ids.contains(&"light"));
+        assert!(ids.contains(&"nord"));
+
+        let red = parse_hex_color("#fa2d48");
+        assert_eq!(red.red(), 250);
+        assert_eq!(red.green(), 45);
+        assert_eq!(red.blue(), 72);
+        assert_eq!(red.alpha(), 255);
+
+        let red_alpha = parse_hex_color("#fa2d4826");
+        assert_eq!(red_alpha.red(), 250);
+        assert_eq!(red_alpha.green(), 45);
+        assert_eq!(red_alpha.blue(), 72);
+        assert_eq!(red_alpha.alpha(), 0x26);
+    }
+
+    #[test]
+    fn test_custom_theme_creation_and_config() {
+        use crate::config::{AppConfig, CustomTheme};
+        use crate::theme::get_theme;
+
+        let mut cfg = AppConfig::default();
+        let custom = CustomTheme {
+            id: "custom_cyberpunk".to_string(),
+            name: "Cyberpunk Neon".to_string(),
+            accent: "#00f0ff".to_string(),
+            bg_canvas: "#0a0a14".to_string(),
+            bg_sidebar: "#121220".to_string(),
+            bg_elevated: "#1a1a2c".to_string(),
+            text_primary: "#ffffff".to_string(),
+            text_secondary: "#8888aa".to_string(),
+            is_light: false,
+        };
+        cfg.custom_themes.push(custom);
+        cfg.active_theme = "custom_cyberpunk".to_string();
+
+        let json = serde_json::to_string(&cfg).expect("Should serialize config with custom theme");
+        let deserialized: AppConfig = serde_json::from_str(&json).expect("Should deserialize config");
+        assert_eq!(deserialized.active_theme, "custom_cyberpunk");
+        assert_eq!(deserialized.custom_themes.len(), 1);
+
+        let def = get_theme(&deserialized.active_theme, &deserialized.custom_themes);
+        assert_eq!(def.name, "Cyberpunk Neon");
+        assert_eq!(def.accent, "#00f0ff");
+        assert!(def.is_custom);
     }
 }

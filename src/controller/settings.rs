@@ -59,6 +59,89 @@ pub fn register_settings_callbacks(ui: &AppWindow, state: Rc<RefCell<AppState>>)
         });
     }
 
+    // Select Theme
+    {
+        let ui_weak = ui.as_weak();
+        let state = state.clone();
+        ui.on_select_theme(move |theme_id| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let mut st = state.borrow_mut();
+            st.config.active_theme = theme_id.to_string();
+            st.config.save();
+            let theme_def = crate::theme::get_theme(&st.config.active_theme, &st.config.custom_themes);
+            crate::theme::apply_theme(&ui, &theme_def);
+            ui.set_status_message(format!("Applied theme: {}", theme_def.name).into());
+        });
+    }
+
+    // Create Custom Theme
+    {
+        let ui_weak = ui.as_weak();
+        let state = state.clone();
+        ui.on_create_custom_theme(move |name, accent, bg, is_light| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let mut st = state.borrow_mut();
+            let name_str = name.trim().to_string();
+            if name_str.is_empty() {
+                return;
+            }
+            let accent_str = if accent.trim().is_empty() { "#fa2d48".to_string() } else { accent.trim().to_string() };
+            let bg_str = if bg.trim().is_empty() {
+                if is_light { "#f5f5f7".to_string() } else { "#101014".to_string() }
+            } else {
+                bg.trim().to_string()
+            };
+            let id = format!("custom_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0));
+            
+            let sidebar_str = if is_light { "#e8e8ed".to_string() } else { "#16161d".to_string() };
+            let elevated_str = if is_light { "#ffffff".to_string() } else { "#1d1d26".to_string() };
+            let text_p = if is_light { "#1d1d1f".to_string() } else { "#f5f5f7".to_string() };
+            let text_s = if is_light { "#6e6e73".to_string() } else { "#9898a4".to_string() };
+
+            let new_theme = crate::config::CustomTheme {
+                id: id.clone(),
+                name: name_str,
+                accent: accent_str,
+                bg_canvas: bg_str,
+                bg_sidebar: sidebar_str,
+                bg_elevated: elevated_str,
+                text_primary: text_p,
+                text_secondary: text_s,
+                is_light,
+            };
+            st.config.custom_themes.push(new_theme);
+            st.config.active_theme = id;
+            st.config.save();
+
+            let theme_items = crate::theme::get_all_theme_items(&st.config.custom_themes);
+            ui.set_available_themes(slint::ModelRc::new(slint::VecModel::from(theme_items)));
+            let theme_def = crate::theme::get_theme(&st.config.active_theme, &st.config.custom_themes);
+            crate::theme::apply_theme(&ui, &theme_def);
+            ui.set_status_message(format!("Created and applied theme: {}", theme_def.name).into());
+        });
+    }
+
+    // Delete Custom Theme
+    {
+        let ui_weak = ui.as_weak();
+        let state = state.clone();
+        ui.on_delete_custom_theme(move |theme_id| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let mut st = state.borrow_mut();
+            st.config.custom_themes.retain(|t| t.id != theme_id.as_str());
+            if st.config.active_theme == theme_id.as_str() {
+                st.config.active_theme = "default".to_string();
+            }
+            st.config.save();
+
+            let theme_items = crate::theme::get_all_theme_items(&st.config.custom_themes);
+            ui.set_available_themes(slint::ModelRc::new(slint::VecModel::from(theme_items)));
+            let theme_def = crate::theme::get_theme(&st.config.active_theme, &st.config.custom_themes);
+            crate::theme::apply_theme(&ui, &theme_def);
+            ui.set_status_message("Deleted custom theme".into());
+        });
+    }
+
     // Set Stream Format
     {
         let ui_weak = ui.as_weak();

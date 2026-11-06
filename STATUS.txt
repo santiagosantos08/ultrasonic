@@ -156,3 +156,28 @@
               - Every main navigation section (Listen Now, Search, Albums, Artists, Songs, Playlists, Genres, Favorites) is individually showable/hideable via Settings toggles
               - Settings persist immediately to `config.json` (`nav_show_listen_now`, `nav_show_search`, `nav_show_albums`, `nav_show_artists`, `nav_show_songs`, `nav_show_playlists`, `nav_show_genres`, `nav_show_favorites`)
               - Both Desktop Sidebar and Mobile Bottom Navigation bar dynamically adapt to show only user-enabled tabs
+
+================================================================================
+8. EXECUTABLE & WINDOW LOGO ICON + DYNAMIC THEME SYSTEM
+================================================================================
+[IMPLEMENTED] Executable & Window Logo Integration:
+              - Windows PE resource icon embedding via `winres` in `build.rs` using multi-resolution `graphics/app_icon.ico` generated from `graphics/square_logo.png`
+              - Slint window titlebar and taskbar icon using `icon: @image-url("../graphics/square_logo.png")` in `ui/app.slint`
+[IMPLEMENTED] Dynamic Color Theme Architecture (`src/theme.rs`):
+              - Reactive `in-out property <color>` palette on Slint global `Theme` for instant runtime theme updates without reloading
+              - Bundled cohesive themes:
+                * "Apple Dark (Red)" (Original signature theme with `#fa2d48` accent)
+                * "Emerald (Green)" (Deep forest palette with `#30d158` emerald accent)
+                * "Ocean (Blue)" (Deep navy palette with `#0a84ff` electric blue accent)
+                * "Amethyst (Purple)" (Velvet dark palette with `#bf5af2` purple accent)
+                * "Amber (Gold)" (Warm dark palette with `#ff9f0a` sunset gold accent)
+                * "Apple Light" (Clean crisp light mode palette with `#fa2d48` accent)
+                * "Nordic Frost" (Cool slate palette with `#88c0d0` arctic blue accent)
+              - Customizable theme creator in Settings:
+                * Name input, accent hex input with quick color swatches (Hot Pink, Cyan, Lime, Tangerine, Violet, Yellow)
+                * Optional custom canvas background hex input
+                * Dark Canvas vs Light Canvas base mode toggle
+                * One-click "Save & Apply Custom Theme" button
+                * Custom themes saved in `config.json` (`custom_themes: Vec<CustomTheme>`) and persisted across restarts
+                * Active theme persisted in `config.json` (`active_theme: String`)
+                * Ability to delete custom themes directly from the theme list in Settings

@@ -251,6 +251,12 @@ pub fn sync_ui_from_state(ui: &AppWindow, state: &mut AppState) {
     ui.set_nav_show_favorites(state.config.nav_show_favorites);
     ui.set_nav_show_search(state.config.nav_show_search);
 
+    // Sync available themes and apply active theme
+    let theme_items = crate::theme::get_all_theme_items(&state.config.custom_themes);
+    ui.set_available_themes(ModelRc::new(VecModel::from(theme_items)));
+    let theme_def = crate::theme::get_theme(&state.config.active_theme, &state.config.custom_themes);
+    crate::theme::apply_theme(ui, &theme_def);
+
     let lib_items: Vec<LibraryItem> = state
         .libraries
         .iter()
