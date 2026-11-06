@@ -18,11 +18,12 @@
 [IMPLEMENTED] Apple Music macOS / iOS inspired visual language (`ui/app.slint`):
               - Clean dark translucent-inspired sidebar (`#161618`) & crisp content canvas (`#111113`)
               - System red/pink (`#FA2D48`) accent & hairline `1px` dividers (`#242428`)
-              - High-density tabular song lists (`TrackTableHeader` + `TrackRow`: Track #, Star `♥`, Title, Local `↓` badge, Artist, Album, OpenSubsonic Quality badge, Duration, Queue `+Q` & Download `↓` actions)
+              - High-density tabular song lists (`TrackTableHeader` + `TrackRow`: Track #, Favorite Heart, Title, Local badge, Artist, Album, OpenSubsonic Quality badge, Duration, Queue & Download actions)
               - Clean square artwork grid ONLY for Albums (`AlbumTile`) — zero bloated card containers or stat boxes
               - Master-detail split views for Artists, Albums, Genres, and Playlists
               - Adaptive Desktop (Sidebar + Bottom Transport Bar) & Mobile (Bottom Tab Bar + Mini Player) layouts
               - Synchronized Lyrics side drawer (`lyrics` mode) & Up Next Queue drawer (`queue` mode)
+              - Refined Google Material Symbols (Rounded style) vector icon system across Slint Desktop/Mobile UI and WebUI (`ui/app.slint`, `web/index.html`): `play_arrow`, `pause`, `skip_previous`, `skip_next`, `shuffle`, `repeat`, `favorite`/`favorite_border`, `download`, `check`, `search`, `music_note`, `album`, `person`, `playlist_play`, `queue_music`, `play_circle`, `grid_view`, `settings`, `volume_up`, `add`, `close`, `star`, and lyrics speech symbol.
 
 ================================================================================
 3. NAVIDROME & OPENSUBSONIC API IMPLEMENTATION (`src/api.rs`, `src/models.rs`)
@@ -79,3 +80,34 @@
 [EXCLUDED] Chat (`getChatMessages`, `addChatMessage`) — Legacy Subsonic chat widget; not supported by Navidrome and not relevant to music playback.
 [EXCLUDED] Directory Tree Simulation (`getIndexes`, `getMusicDirectory`) — Navidrome docs recommend ID3 browsing (`getArtists`/`getAlbumList2`) over simulated `/Artist/Album/Song` directory endpoints.
 [EXCLUDED] Jukebox mode (`jukeboxControl`) — Server hardware audio output control; local Desktop/Mobile/WebUI playback is used instead.
+
+================================================================================
+5. NON-BLOCKING ASYNC ARCHITECTURE & SKELETON LOADERS
+================================================================================
+[IMPLEMENTED] Apple Music-Style Skeleton Shimmer Loaders (`ui/app.slint`):
+              - Custom `SkeletonBlock` with smooth 250ms transition pulsing shimmer (`pulse-phase`)
+              - Specialized view skeletons matching exact Apple Music layout geometry:
+                * `TrackRowSkeleton` / `TrackTableSkeleton` (for Songs, Favorites, Search, and Genres)
+                * `AlbumTileSkeleton` (for Featured & Album grid)
+                * `AlbumRowSkeleton` (for Artist discography)
+                * `AlbumDetailSkeleton` (large cover art + header details + 8 skeleton track rows)
+                * `ArtistDetailSkeleton` (header + top 5 tracks skeleton + discography grid skeleton)
+              - Responsive view loading states wired to `is-loading` property across all views (`listen_now`, `albums`, `album_detail`, `artists`, `songs`, `favorites`, `search`, `genres`, `playlists`)
+[IMPLEMENTED] 100% Non-Blocking Asynchronous Network Architecture (`src/controller.rs`):
+              - Zero synchronous HTTP network calls on the Slint UI thread (`ureq` offloaded to `std::thread::spawn` background workers)
+              - Safe cross-thread event loop dispatch using `slint::invoke_from_event_loop` and `with_app_state`
+              - Asynchronous catalog loading (`getAlbumList2`, `getRandomSongs`, `getArtists`, `getGenres`, `getPlaylists`, `getShares`, `getScanStatus`)
+              - Asynchronous view navigation & sorting (`listen_now`, `albums`, `favorites`, `songs`, `change_album_sort`)
+              - Asynchronous master-detail browsing (`open_album`, `open_artist`, `select_genre`, `run_search`, `select_playlist`)
+              - Asynchronous background multi-track downloader (`download_album`, `download_selected_playlist`, `download_song`)
+              - Asynchronous playlist & queue management (`create_new_playlist`, `add_current_song_to_playlist`, `remove_song_from_selected_playlist`, `delete_selected_playlist`, `save_queue_to_server`, `load_queue_from_server`)
+              - Instant UI feedback with optimistic updates for stars & 1-5 ratings (`toggle_star`, `toggle_album_star`, `set_song_rating`)
+              - Background server scan requests & share management (`trigger_server_scan`, `share_current_album`, `delete_share`)
+[IMPLEMENTED] Progressive Cover Art Fetching & Decoding:
+              - Covers resolve instantly from in-memory cache without stalling UI
+              - Uncached covers fetched on background threads (`fetch_cover_art`), decoded, and loaded into Slint models dynamically without frame drops
+[IMPLEMENTED] Non-Blocking Audio Streaming & Playback:
+              - Clicking any track updates Now Playing bar immediately (<1ms) with title, artist, album, duration, and "BUFFERING..." badge
+              - Audio stream bytes, synchronized lyrics, and scrobble notifications fetched concurrently on background worker threads
+              - Generational playback tokens (`play_generation`) prevent race conditions when rapidly changing tracks
+              - Scrobble at 50% playback mark executes asynchronously in background to avoid any audio or UI progress hitching

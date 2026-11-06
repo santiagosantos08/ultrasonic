@@ -139,7 +139,7 @@
       <div class="login-header">
         <div class="emblem">
           <svg class="icon" style="width:24px;height:24px;color:#fff" viewBox="0 0 24 24">
-            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4c.55 0 1-.45 1-1s-.45-1-1-1h-5c-.55 0-1 .45-1 1z"/>
           </svg>
         </div>
         <div>
@@ -170,7 +170,7 @@
       <div class="brand">
         <div class="emblem" style="width:24px;height:24px;border-radius:6px">
           <svg class="icon" style="width:14px;height:14px;color:#fff" viewBox="0 0 24 24">
-            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4c.55 0 1-.45 1-1s-.45-1-1-1h-5c-.55 0-1 .45-1 1z"/>
           </svg>
         </div>
         <span>Music</span>
@@ -295,7 +295,7 @@
         const row = document.createElement('div');
         row.className = 'lib-row';
         row.onclick = () => toggleLib(lib.id);
-        row.innerHTML = `<span class="chk ${on ? 'on' : ''}">${on ? '<svg class="icon" style="width:11px;height:11px;color:#fff" viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>' : ''}</span><span>${lib.name}</span>`;
+        row.innerHTML = `<span class="chk ${on ? 'on' : ''}">${on ? '<svg class="icon" style="width:11px;height:11px;color:#fff" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12c-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41l4.47 4.47c.39.39 1.02.39 1.41 0L20.29 6.89c.39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0L9 16.17z"/></svg>' : ''}</span><span>${lib.name}</span>`;
         libBox.appendChild(row);
       });
       document.getElementById('autodl-btn').textContent =
